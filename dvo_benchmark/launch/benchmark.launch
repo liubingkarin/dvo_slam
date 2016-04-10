@@ -8,6 +8,8 @@
   <arg name="config_file" default="$(arg launch_dir)/benchmark.yaml" />
   <arg name="slam_config_file" default="$(arg launch_dir)/benchmark_backend.yaml" />
   <arg name="keep_alive" default="false"/>
+  <arg name="show_estimate" default="true"/>
+  <arg name="show_groundtruth" default="false"/>
   
   <!-- if relative path the file will end up in ~/.ros/ -->
   <arg name="trajectory_file" default="$(arg output_dir)/trajectory.txt" />
@@ -28,8 +30,8 @@
     <param type="bool" name="estimate_trajectory" value="true" />
     <param type="string" name="trajectory_file" value="$(arg trajectory_file)" />
     
-    <param type="bool" name="show_estimate" value="true" />
-    <param type="bool" name="show_groundtruth" value="false" />
+    <param type="bool" name="show_estimate" value="$(arg show_estimate)" />
+    <param type="bool" name="show_groundtruth" value="$(arg show_groundtruth)" />
     <param type="bool" name="keep_alive" value="$(arg keep_alive)" />
     
     <param type="bool" name="render_video" value="false" />

@@ -35,6 +35,8 @@
 #include <dvo/util/id_generator.h>
 #include <dvo/util/histogram.h>
 //#include <dvo/visualization/visualizer.h>
+#include <ctime>
+#include <stdio.h>
 
 namespace dvo
 {
@@ -130,6 +132,8 @@ bool DenseTracker::match(dvo::core::RgbdImagePyramid& reference, dvo::core::Rgbd
 
 bool DenseTracker::match(dvo::core::PointSelection& reference, dvo::core::RgbdImagePyramid& current, dvo::DenseTracker::Result& result)
 {
+  clock_t startClock = clock();
+
   current.compute(cfg.getNumLevels());
 
   bool success = true;
@@ -197,6 +201,9 @@ bool DenseTracker::match(dvo::core::PointSelection& reference, dvo::core::RgbdIm
   Eigen::Matrix2f /*first_precision,*/ precision;
   precision.setZero();
 
+  int loopTime = 0;
+  int t1 = 0, t2 = 0, t3 = 0, t4 = 0, t5 = 0;
+  int loop_counter = 0;
   for(itctx_.Level = cfg.FirstLevel; itctx_.Level >= cfg.LastLevel; --itctx_.Level)
   {
     result.Statistics.Levels.push_back(LevelStats());
@@ -242,7 +249,6 @@ bool DenseTracker::match(dvo::core::PointSelection& reference, dvo::core::RgbdIm
     compute_residuals_result.first_residual = residuals.begin();
     compute_residuals_result.first_valid_flag = valid_residuals.begin();
 
-
 //    sw_level[itctx_.Level].start();
     do
     {
@@ -257,7 +263,16 @@ bool DenseTracker::match(dvo::core::PointSelection& reference, dvo::core::RgbdIm
       Eigen::Affine3f transformf;
 
         inc = Sophus::SE3d::exp(x);
+
+//        //ROS_INFO("Test 1");
+//        inc.inverse();
+//        //ROS_INFO("Test 2");
+//        initial();
+//        //ROS_INFO("Test 3");
+//        inc.inverse() * initial();
+//        //ROS_INFO("Test 4");
         initial.update() = inc.inverse() * initial();
+        //ROS_INFO("Test 5");
         estimate.update() = inc * estimate();
 
         transformf = estimate().matrix().cast<float>();
@@ -330,16 +345,33 @@ bool DenseTracker::match(dvo::core::PointSelection& reference, dvo::core::RgbdIm
       Eigen::Vector2f Ji;
       Vector6 Jz;
       ls.initialize(1);
+      //ROS_INFO("for(PointIterator e_it ...");
+      //clock_t loop_startClock = clock();
       for(PointIterator e_it = compute_residuals_result.first_point_error; e_it != compute_residuals_result.last_point_error; ++e_it, ++w_it)
       {
+        loop_counter++;
+        //clock_t tmpClock = clock();
         computeJacobianOfProjectionAndTransformation(e_it->getPointVec4f(), Jw);
+        //t1 += clock() - tmpClock;
+
+        //tmpClock = clock();
         compute3rdRowOfJacobianOfTransformation(e_it->getPointVec4f(), Jz);
+        //t2 += clock() - tmpClock;
 
+        //tmpClock = clock();
         J.row(0) = e_it->getIntensityDerivativeVec2f().transpose() * Jw;
-        J.row(1) = e_it->getDepthDerivativeVec2f().transpose() * Jw - Jz.transpose();
+        //t3 += clock() - tmpClock;
 
+        //tmpClock = clock();
+        J.row(1) = e_it->getDepthDerivativeVec2f().transpose() * Jw - Jz.transpose();
+        //t4 += clock() - tmpClock;
+
+        //tmpClock = clock();
         ls.update(J, e_it->getIntensityAndDepthVec2f(), (*w_it) * precision);
+        //t5 += clock() - tmpClock;
       }
+      //loopTime += clock() - loop_startClock;
+
       ls.finish();
 
       A = ls.A.cast<double>() + cfg.Mu * Matrix6d::Identity();
@@ -371,6 +403,9 @@ bool DenseTracker::match(dvo::core::PointSelection& reference, dvo::core::RgbdIm
   result.Transformation = estimate().inverse().matrix();
   result.Information = last_iteration.EstimateInformation * 0.008 * 0.008;
   result.LogLikelihood = last_iteration.TDistributionLogLikelihood + last_iteration.PriorLogLikelihood;
+
+  //std::cout << "total time: " << clock() - startClock << " loop time: "<< loopTime << " loop_counter: " << loop_counter <<std::endl << std::flush;
+  //std::cout << t1 << " " << t2 << " " << t3 << " " << t4 << " " << t5 << " " <<std::endl << std::flush;
 
   return success;
 }

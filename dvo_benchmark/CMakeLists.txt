@@ -11,6 +11,7 @@ find_package(Eigen3 REQUIRED)
 find_package(OpenCV 2.4.8 REQUIRED)
 
 #LIST(APPEND CMAKE_CXX_FLAGS "-std=c++11")
+LIST(APPEND CMAKE_CXX_FLAGS "-O3")
 
 catkin_package(
   INCLUDE_DIRS include

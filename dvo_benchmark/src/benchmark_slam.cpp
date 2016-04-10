@@ -42,7 +42,7 @@
 #include <dvo_benchmark/rgbd_pair.h>
 #include <dvo_benchmark/groundtruth.h>
 #include <dvo_benchmark/tools.h>
-
+#include <ctime>
 dvo::core::RgbdImagePyramidPtr load(dvo::core::RgbdCameraPyramid& camera, std::string rgb_file, std::string depth_file)
 {
   cv::Mat rgb, grey, grey_s16, depth, depth_inpainted, depth_mask, depth_mono, depth_float;
@@ -446,10 +446,28 @@ void BenchmarkNode::run()
 
   dvo::core::RgbdImagePyramid::Ptr current;
 
+  ROS_INFO("Start interating dataset");
+
   dvo::util::stopwatch sw_online("online", 1), sw_postprocess("postprocess", 1);
   sw_online.start();
+  int loop_counter = 0;
+  clock_t time_start = clock();
+  ROS_INFO("cfg_.ShowGroundtruth %i", cfg_.ShowGroundtruth);
+  ROS_INFO("cfg_.EstimateTrajectory %i", cfg_.EstimateTrajectory);
+  ROS_INFO("cfg_.ShowEstimate %i", cfg_.ShowEstimate);
+
   for(std::vector<dvo_benchmark::RgbdPair>::iterator it = pairs.begin(); ros::ok() && it != pairs.end(); ++it)
   {
+    loop_counter++;
+    if(loop_counter < 100)
+    {
+        ROS_INFO("loop %i", loop_counter);
+    }
+    else if (loop_counter == 100){
+        ROS_INFO("loop 100 time %i",(clock()-time_start)/CLOCKS_PER_SEC);
+    }
+
+
     current = load(camera, folder + it->RgbFile(), folder + it->DepthFile());
 
     if(!current) continue;
@@ -460,17 +478,18 @@ void BenchmarkNode::run()
 
     if(cfg_.ShowGroundtruth)
     {
+        ROS_INFO("enter cfg_.ShowGroundtruth");
       Eigen::Affine3d groundtruth_pose;
 
       dvo_benchmark::findClosestEntry(*groundtruth_reader_, it->RgbTimestamp());
       dvo_benchmark::toPoseEigen(groundtruth_reader_->entry(), groundtruth_pose);
 
       visualizer->trajectory("groundtruth")->
-          color(dvo::visualization::Color::green()).
+          color(dvo::visualization::Color::blue()).
           add(groundtruth_pose);
 
       visualizer->camera("groundtruth")->
-          color(dvo::visualization::Color::green()).
+          color(dvo::visualization::Color::blue()).
           update(current->level(0), groundtruth_pose).
           show(cfg_.ShowEstimate ? dvo::visualization::CameraVisualizer::ShowCamera : dvo::visualization::CameraVisualizer::ShowCameraAndCloud);
     }
@@ -486,7 +505,9 @@ void BenchmarkNode::run()
       static dvo::util::stopwatch sw_match("match", 100);
       sw_match.start();
       {
+        //ROS_INFO("keyframe_tracker before update");
         keyframe_tracker.update(current, it->RgbTimestamp(), trajectory);
+        //ROS_INFO("keyframe_tracker after update");
       }
       sw_match.stopAndPrint();
 
@@ -526,13 +547,16 @@ void BenchmarkNode::run()
     //  ((dvo::visualization::PclCameraTrajectoryVisualizer*) visualizer)->visualizer().saveScreenshot(frame_ids.next() + std::string(".png"));
     //}
   }
+  ROS_INFO("interating dataset finished");
   sw_online.stop();
   //std::cerr << "input:" << std::endl;
   //std::string tmp;
   //std::cin >> tmp;
 
+  ROS_INFO("sw_postprocess.start();");
   sw_postprocess.start();
   sw_postprocess.stop();
+  ROS_INFO("sw_postprocess.stop();");
 
   sw_online.print();sw_postprocess.print();
 
@@ -541,12 +565,15 @@ void BenchmarkNode::run()
   {
     renderWhileSwitchAndNotTerminated(visualizer/*, dummy_switch*/);
   }
+  ROS_INFO("before serializing");
 
   dvo_slam::serialization::FileSerializer<dvo_slam::serialization::TrajectorySerializer> serializer(optimized_trajectory_file);
   keyframe_tracker.serializeMap(serializer);
+  ROS_INFO("after keyframe_tracker.serializeMap(serializer);");
 
   dvo_slam::serialization::FileSerializer<dvo_slam::serialization::EdgeErrorSerializer> error_serializer(edge_error_file);
   keyframe_tracker.serializeMap(error_serializer);
+  ROS_INFO("after keyframe_tracker.serializeMap(error_serializer);");
 }
 
 int main(int argc, char **argv)

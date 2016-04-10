@@ -11,6 +11,10 @@ find_package(Eigen3 REQUIRED)
 find_package(OpenCV 2.4.8 REQUIRED)
 #find_package(TBB REQUIRED)
 
+
+LIST(APPEND CMAKE_CXX_FLAGS "-O3")
+
+
 # dynamic reconfigure
 generate_dynamic_reconfigure_options(cfg/CameraDenseTracker.cfg)
 

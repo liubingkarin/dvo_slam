@@ -1,3 +1,6 @@
+dvo_slam_from_info_compilable
+
+
 # Dense Visual Odometry and SLAM (dvo_slam)
 
 *NOTE: this is an alpha release APIs and parameters are going to change in near future. No support is provided at this point.*

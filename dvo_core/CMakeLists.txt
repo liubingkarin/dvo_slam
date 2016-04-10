@@ -17,7 +17,7 @@ catkin_package(
   DEPENDS OpenCV PCL
 )
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse -msse2 -msse3 -msse4 -ftree-vectorize")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse3 -ftree-vectorize -O3") #-msse -msse2 -msse4 
 
 include_directories(
   "include"
