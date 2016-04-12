@@ -190,7 +190,7 @@ public:
 
   void calculateNormals();
 
-  void buildPointCloud();
+  void buildPointCloud();//!!!!!!!!!!!!!!!!
 
   //void buildPointCloud(const IntrinsicMatrix& intrinsics);
 

@@ -506,7 +506,7 @@ private:
         .keepAll()
         .addVoter(new OdometryConstraintVoter())
         .addVoter(new NaNResultVoter())
-        .addVoter(new ConstraintRatioVoter(cfg_.MinEquationSystemConstraintRatio))
+        //.addVoter(new ConstraintRatioVoter(cfg_.MinEquationSystemConstraintRatio))
         .addVoter(new TrackingResultEvaluationVoter(cfg_.NewConstraintMinEntropyRatioCoarse))
         .addVoter(new CrossValidationVoter(1.0))
    ;
@@ -515,7 +515,7 @@ private:
         .trackingConfig(constraint_tracker_cfg_)
         .keepBest()
         .addVoter(new NaNResultVoter())
-        .addVoter(new ConstraintRatioVoter(cfg_.MinEquationSystemConstraintRatio))
+        //.addVoter(new ConstraintRatioVoter(cfg_.MinEquationSystemConstraintRatio))
         .addVoter(new TrackingResultEvaluationVoter(cfg_.NewConstraintMinEntropyRatioFine));
 
     return r;

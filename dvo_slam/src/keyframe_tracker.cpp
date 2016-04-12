@@ -67,7 +67,7 @@ public:
     lt_.addAcceptCallback(boost::bind(&KeyframeTracker::Impl::onAcceptCriterionEstimateDivergence, this, _1, _2, _3));
     //lt_.addAcceptCallback(boost::bind(&KeyframeTracker::Impl::onAcceptCriterionEntropyRatio, this, _1, _2, _3));
     lt_.addAcceptCallback(boost::bind(&KeyframeTracker::Impl::onAcceptCriterionDistance, this, _1, _2, _3));
-    lt_.addAcceptCallback(boost::bind(&KeyframeTracker::Impl::onAcceptCriterionConstraintRatio, this, _1, _2, _3));
+    //lt_.addAcceptCallback(boost::bind(&KeyframeTracker::Impl::onAcceptCriterionConstraintRatio, this, _1, _2, _3));
     lt_.addAcceptCallback(boost::bind(&KeyframeTracker::Impl::onAcceptCriterionConditionNumber, this, _1, _2, _3));
 
     ll_keyframe_pub_ = nh_.advertise<std_msgs::Float64>("/ll/keyframe", 1);

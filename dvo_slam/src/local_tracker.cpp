@@ -25,6 +25,8 @@
 
 #include <dvo/util/stopwatch.h>
 
+#include <iaicp/iaicp.h>
+
 #include <tbb/parallel_invoke.h>
 #include <tbb/tbb_thread.h>
 
@@ -176,6 +178,23 @@ void LocalTracker::update(const dvo::core::RgbdImagePyramid::Ptr& image, dvo::co
   // recycle, so we can reuse the allocated memory
   impl_->active_frame_points_->setRgbdImagePyramid(*local_map_->getCurrentFrame());
 
+
+  Iaicp iaicp;
+
+//  ROS_INFO("has rgb %i",impl_->keyframe_points_->getRgbdImagePyramid().level(0).hasRgb());
+//  ROS_INFO("has rgb %i",image->level(0).hasRgb());
+
+//  ROS_INFO("has depth %i",impl_->keyframe_points_->getRgbdImagePyramid().level(0).hasDepth());
+//  ROS_INFO("has depth %i",image->level(0).hasDepth());
+
+  CloudPtr tmp_s, tmp_t;
+  tmp_s = iaicp.Mat2Cloud(impl_->keyframe_points_->getRgbdImagePyramid().level(0).rgb,
+                          impl_->keyframe_points_->getRgbdImagePyramid().level(0).depth);
+  iaicp.setupSource(tmp_s);
+  tmp_t =  iaicp.Mat2Cloud(image->level(0).rgb, image->level(0).depth);
+  iaicp.setupTarget(tmp_t);
+  iaicp.run();
+  Eigen::Affine3f result = iaicp.getTransResult();
   // TODO: fix me!
   boost::function<void()> h1 = boost::bind(&internal::LocalTrackerImpl::match, impl_->keyframe_tracker_, impl_->keyframe_points_, image, &r_keyframe);
   boost::function<void()> h2 = boost::bind(&internal::LocalTrackerImpl::match, impl_->odometry_tracker_, impl_->active_frame_points_, image,  &r_odometry);

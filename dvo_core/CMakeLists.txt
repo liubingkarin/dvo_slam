@@ -17,7 +17,7 @@ catkin_package(
   DEPENDS OpenCV PCL
 )
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse3 -ftree-vectorize -O3") #-msse -msse2 -msse4 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse3 -ftree-vectorize -O3 -msse -msse2 -msse4") # 
 
 include_directories(
   "include"
@@ -46,6 +46,8 @@ add_library(dvo_core
     src/dense_tracking.cpp
     src/dense_tracking_impl.cpp
     src/dense_tracking_config.cpp
+
+    src/iaicp/iaicp.cpp
 )
 
 target_link_libraries(dvo_core 
