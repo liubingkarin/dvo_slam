@@ -31,6 +31,7 @@
 #include <tbb/tbb_thread.h>
 
 #include <ros/console.h>
+#include <string>
 
 namespace dvo_slam
 {
@@ -156,9 +157,13 @@ void LocalTracker::initNewLocalMap(const dvo::core::RgbdImagePyramid::Ptr& keyfr
   impl_->map_initialized_(*this, local_map_, r_odometry);
 }
 
+int g_frameCounter = 0;
+
 void LocalTracker::update(const dvo::core::RgbdImagePyramid::Ptr& image, dvo::core::AffineTransformd& pose)
 {
   static dvo::util::stopwatch sw_prepare("prepare",100), sw_match("m", 100);
+
+  g_frameCounter++;
   sw_prepare.start();
   // prepare image
   const dvo::DenseTracker::Config& config = impl_->keyframe_tracker_->configuration();
@@ -179,22 +184,55 @@ void LocalTracker::update(const dvo::core::RgbdImagePyramid::Ptr& image, dvo::co
   impl_->active_frame_points_->setRgbdImagePyramid(*local_map_->getCurrentFrame());
 
 
-  Iaicp iaicp;
+  Eigen::Affine3f result_key, result_odo;
+  {
+      Iaicp iaicp;
+      CloudPtr tmp_s, tmp_t;
+      tmp_s = iaicp.Mat2Cloud(image->level(0).rgb, image->level(0).depth);
 
-//  ROS_INFO("has rgb %i",impl_->keyframe_points_->getRgbdImagePyramid().level(0).hasRgb());
-//  ROS_INFO("has rgb %i",image->level(0).hasRgb());
+      tmp_t = iaicp.Mat2Cloud(impl_->keyframe_points_->getRgbdImagePyramid().level(0).rgb,
+                              impl_->keyframe_points_->getRgbdImagePyramid().level(0).depth);
 
-//  ROS_INFO("has depth %i",impl_->keyframe_points_->getRgbdImagePyramid().level(0).hasDepth());
-//  ROS_INFO("has depth %i",image->level(0).hasDepth());
+      cv::Mat  mat_s = iaicp.cloudToImage(tmp_s);
+      mat_s.convertTo(mat_s, CV_8UC3, 255.0);
+      cv::imwrite( std::string("/home/liubing/Documents/images/source") +  boost::lexical_cast<std::string>(g_frameCounter) + ".jpg", mat_s);
 
-  CloudPtr tmp_s, tmp_t;
-  tmp_s = iaicp.Mat2Cloud(impl_->keyframe_points_->getRgbdImagePyramid().level(0).rgb,
-                          impl_->keyframe_points_->getRgbdImagePyramid().level(0).depth);
-  iaicp.setupSource(tmp_s);
-  tmp_t =  iaicp.Mat2Cloud(image->level(0).rgb, image->level(0).depth);
-  iaicp.setupTarget(tmp_t);
-  iaicp.run();
-  Eigen::Affine3f result = iaicp.getTransResult();
+      cv::Mat mat_t = iaicp.cloudToImage(tmp_t);
+      mat_t.convertTo(mat_t, CV_8UC3, 255.0);
+      cv::imwrite( std::string("/home/liubing/Documents/images/target") + boost::lexical_cast<std::string>(g_frameCounter) + ".jpg", mat_t);
+
+      iaicp.setupSource(tmp_s);
+      iaicp.setupTarget(tmp_t);
+      iaicp.run();
+      result_key = iaicp.getTransResult();
+
+      cv::Mat mat_trans = iaicp.cloudToImage(tmp_s, result_key);
+      mat_trans.convertTo(mat_trans, CV_8UC3, 255.0);
+      cv::imwrite( std::string("/home/liubing/Documents/images/source_trans") + boost::lexical_cast<std::string>(g_frameCounter) + ".jpg", mat_trans);
+
+      {
+          cv::Mat residual;
+          cv::absdiff(mat_trans , mat_t, residual);
+          cv::imwrite( std::string("/home/liubing/Documents/images/residual") + boost::lexical_cast<std::string>(g_frameCounter) + ".jpg", residual);
+      }
+      {
+          cv::Mat residual;
+          cv::absdiff(mat_s , mat_t, residual);
+          cv::imwrite( std::string("/home/liubing/Documents/images/residual__") + boost::lexical_cast<std::string>(g_frameCounter) + ".jpg", residual);
+      }
+  }
+  {
+      Iaicp iaicp;
+      CloudPtr tmp_s, tmp_t;
+      tmp_s = iaicp.Mat2Cloud(image->level(0).rgb, image->level(0).depth);
+      iaicp.setupSource(tmp_s);
+
+      tmp_t = iaicp.Mat2Cloud(impl_->active_frame_points_->getRgbdImagePyramid().level(0).rgb,
+                              impl_->active_frame_points_->getRgbdImagePyramid().level(0).depth);
+      iaicp.setupTarget(tmp_t);
+      iaicp.run();
+      result_odo = iaicp.getTransResult();
+  }
   // TODO: fix me!
   boost::function<void()> h1 = boost::bind(&internal::LocalTrackerImpl::match, impl_->keyframe_tracker_, impl_->keyframe_points_, image, &r_keyframe);
   boost::function<void()> h2 = boost::bind(&internal::LocalTrackerImpl::match, impl_->odometry_tracker_, impl_->active_frame_points_, image,  &r_odometry);
@@ -202,6 +240,26 @@ void LocalTracker::update(const dvo::core::RgbdImagePyramid::Ptr& image, dvo::co
   sw_match.start();
   tbb::parallel_invoke(h1, h2);
   sw_match.stopAndPrint();
+
+//  ROS_INFO("ICP result trans: %f %f %f", result.translation()(0), result.translation()(1), result.translation()(2));
+//  ROS_INFO("DVO result trans: %f %f %f", r_keyframe.Transformation.translation()(0),
+//           r_keyframe.Transformation.translation()(1),
+//           r_keyframe.Transformation.translation()(2));
+
+//  ROS_INFO("ICP result rot: %f %f %f %f", result.rotation()(0), result.rotation()(1), result.rotation()(2), result.rotation()(3));
+//  ROS_INFO("DVO result rot: %f %f %f %f", r_keyframe.Transformation.rotation()(0),
+//           r_keyframe.Transformation.rotation()(1),
+//           r_keyframe.Transformation.rotation()(2),
+//           r_keyframe.Transformation.rotation()(3));
+
+  for(int r = 0; r < 4; r++)
+  {
+      for(int c = 0; c < 4; c++)
+      {
+//          r_keyframe.Transformation(r,c) = result_key(r,c);
+//          r_odometry.Transformation(r,c) = result_odo(r,c);
+      }
+  }
 
   ROS_WARN_COND(r_odometry.isNaN(), "NAN in Odometry");
   ROS_WARN_COND(r_keyframe.isNaN(), "NAN in Keyframe");

@@ -57,6 +57,7 @@ public:
     Eigen::Affine3f toEigen(Vector6f pose);
     Vector6f toVector(Eigen::Affine3f pose);
 
+    cv::Mat cloudToImage(const CloudPtr& cloud, Eigen::Affine3f transform = Eigen::Affine3f::Identity());
 private:
     /*performs one level of iterations of the IaICP method
     maxDist: max. distance allowed between correspondences.

@@ -288,5 +288,46 @@ Vector6f Iaicp::toVector(Affine3f pose)
     return temp;
 }
 
+Mat Iaicp::cloudToImage(const CloudPtr &cloud, Affine3f transform)
+{
+    std::vector<double> proj_depth(width*height);//transposed src image
+
+    for(int i = 0; i < width*height; i++)
+    {
+        proj_depth[i] = 1e10;
+    }
+    for(size_t c = 0; c < width; c++)
+    {
+        for(size_t r = 0; r < height; r++)
+        {
+            PointT point = cloud->points[r*width+c];
+
+            //warp
+            point = transformPoint(point, transform);
+
+            int c_t = floor(point.x*fx/point.z + cx);
+            int r_t = floor(point.y*fy/point.z + cy);
+
+            if (c_t >=0 && c_t < width && r_t >=0 && r_t < height)
+            {
+                if(point.z < proj_depth[r_t*width + c_t])
+                {
+                    proj_depth[r_t*width + c_t] = point.z;
+                }
+            }
+        }
+    }
+    Mat mat(height, width, CV_32F);
+    for(size_t c= 0; c < width; c++)
+    {
+        for(size_t r = 0; r < height; r++)
+        {
+            mat.row(r).col(c) = std::max(std::min(proj_depth[r*width+c]/5.0, 1.0), 0.0);
+        }
+    }
+
+    return mat;
+}
+
 
 
