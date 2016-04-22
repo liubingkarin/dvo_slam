@@ -24,7 +24,8 @@
 #include <boost/shared_ptr.hpp>
 
 #include <dvo/dense_tracking.h>
-
+#include <iostream>
+#include <fstream>
 namespace dvo_slam
 {
 

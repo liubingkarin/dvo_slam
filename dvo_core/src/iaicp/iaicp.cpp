@@ -1,5 +1,6 @@
 #include "iaicp/iaicp.h"
 #include <Eigen/Geometry>
+#include <fstream>
 using namespace pcl;
 using namespace pcl::registration;
 using namespace Eigen;
@@ -101,14 +102,14 @@ void Iaicp::sampleSource()
             float diff3=z_ - m_src->points[(j-2)*width+i].z;
             float diff4=z_ - m_src->points[(j+2)*width+i].z;
             if ( diff1!=diff1 || diff2!=diff2 || diff3!=diff3 || diff4!=diff4){
-                                continue;
+                continue;
             }
             float thres= 0.021*z_;
             if ( diff1>thres || diff2>thres || diff3>thres || diff4>thres ){
-                                continue;
+                continue;
             }
 
-//            //image gradient
+            //            //image gradient
             float sim1=colorsimGray(m_src->points[j*width+i-4], m_src->points[j*width+i+4] );
             float sim2=colorsimGray(m_src->points[(j-4)*width+i], m_src->points[(j+4)*width+i] );
             if((sim1==sim1 && sim1<=0.85f)||(sim2==sim2 && sim2 <=0.85f)){
@@ -132,13 +133,13 @@ void Iaicp::sampleSource()
                 continue;
             }
 
-//            //large depth change
-//            float zdiff = pt.z - m_tgt->points[ypos*width+xpos].z;
-//            if (fabs(zdiff)>0.09f*z_){
-//                m_salientSrc->points.push_back(m_src->points[j*width+i]);
-//                cnt++;
-//                continue;
-//            }
+            //            //large depth change
+            //            float zdiff = pt.z - m_tgt->points[ypos*width+xpos].z;
+            //            if (fabs(zdiff)>0.09f*z_){
+            //                m_salientSrc->points.push_back(m_src->points[j*width+i]);
+            //                cnt++;
+            //                continue;
+            //            }
         }
     }
     if(cnt<200){
@@ -195,7 +196,7 @@ void Iaicp::iterateLevel(float maxDist, int offset, int maxiter) //performs one 
                     PointT pt2 = m_tgt->points[ypos_*width+xpos_];
                     float dist = (pt.getVector3fMap()-pt2.getVector3fMap()).norm();  //geo. distance
                     if(dist==dist){           //check for NAN
-//                        if (dist>maxDist) {continue;}
+                        //                        if (dist>maxDist) {continue;}
                         float residual = getresidual(pt2, pt);
                         if(residual==residual){  //check for NAN
                             float geoWeight = 1e2f*(6.f/(5.f+ pow((dist)/(geoMad), 2)));
@@ -213,14 +214,14 @@ void Iaicp::iterateLevel(float maxDist, int offset, int maxiter) //performs one 
 
             if(maxWeight>0 ){
                 if ((m_salientSrc->points[thisIndex].getVector3fMap()-tgtpt.getVector3fMap()).norm()<1000.f){
-                     src_->points.push_back(pt);
-                     tgt_->points.push_back(tgtpt);
+                    src_->points.push_back(pt);
+                    tgt_->points.push_back(tgtpt);
 
-                     intResidual=getresidual(tgtpt, pt);
-                     geoResidual = (pt.getVector3fMap()-tgtpt.getVector3fMap()).norm();
-                     intResiduals.push_back(intResidual);
-                     geoResiduals.push_back(geoResidual);
-                     counter++;
+                    intResidual=getresidual(tgtpt, pt);
+                    geoResidual = (pt.getVector3fMap()-tgtpt.getVector3fMap()).norm();
+                    intResiduals.push_back(intResidual);
+                    geoResiduals.push_back(geoResidual);
+                    counter++;
                 }
             }
         }
@@ -253,10 +254,10 @@ void Iaicp::iterateLevel(float maxDist, int offset, int maxiter) //performs one 
         pcl::TransformationFromCorrespondences transFromCorr;
         for (size_t i =0;i<src_->points.size();i++)
         {
-                        Eigen::Vector3f from(src_->points.at(i).x, src_->points.at(i).y, src_->points.at(i).z);
-                        Eigen::Vector3f to(tgt_->points.at(i).x, tgt_->points.at(i).y, tgt_->points.at(i).z);
-                        float sensorRel = 1.f;///(0.0012+0.0019*pow(src_->points.at(i).z-0.4, 2));
-                        transFromCorr.add(from, to, geoResiduals[i] * intResiduals[i]*sensorRel);
+            Eigen::Vector3f from(src_->points.at(i).x, src_->points.at(i).y, src_->points.at(i).z);
+            Eigen::Vector3f to(tgt_->points.at(i).x, tgt_->points.at(i).y, tgt_->points.at(i).z);
+            float sensorRel = 1.f;///(0.0012+0.0019*pow(src_->points.at(i).z-0.4, 2));
+            transFromCorr.add(from, to, geoResiduals[i] * intResiduals[i]*sensorRel);
 
         }
         Affine3f increTrans= transFromCorr.getTransformation();
@@ -269,10 +270,10 @@ void Iaicp::iterateLevel(float maxDist, int offset, int maxiter) //performs one 
 
 void Iaicp::checkAngles(Vector6f &vec)
 {
-   for(size_t i=3; i<6; i++){
-       while (vec(i)>M_PI)  {vec(i) -= 2*M_PI;}
-       while (vec(i)<-M_PI) {vec(i) += 2*M_PI;}
-   }
+    for(size_t i=3; i<6; i++){
+        while (vec(i)>M_PI)  {vec(i) -= 2*M_PI;}
+        while (vec(i)<-M_PI) {vec(i) += 2*M_PI;}
+    }
 }
 
 Affine3f Iaicp::toEigen(Vector6f pose)
@@ -290,7 +291,7 @@ Vector6f Iaicp::toVector(Affine3f pose)
 
 Mat Iaicp::cloudToImage(const CloudPtr &cloud, Affine3f transform)
 {
-    std::vector<double> proj_depth(width*height);//transposed src image
+    std::vector<double> proj_depth(width*height);//warped image
 
     for(int i = 0; i < width*height; i++)
     {
@@ -301,6 +302,55 @@ Mat Iaicp::cloudToImage(const CloudPtr &cloud, Affine3f transform)
         for(size_t r = 0; r < height; r++)
         {
             PointT point = cloud->points[r*width+c];
+
+            //warp
+            point = transformPoint(point, transform);
+
+            int c_t = floor(point.x*fx/point.z + cx);//!!!point.z could be nan
+            int r_t = floor(point.y*fy/point.z + cy);
+
+            if (c_t >=0 && c_t < width && r_t >=0 && r_t < height)
+            {
+                if(point.z < proj_depth[r_t*width + c_t])
+                {
+                    proj_depth[r_t*width + c_t] = 0;
+
+                }
+            }
+        }
+    }
+    Mat mat(height, width, CV_32F);
+    for(size_t c= 0; c < width; c++)
+    {
+        for(size_t r = 0; r < height; r++)
+        {
+
+            if(proj_depth[r*width+c] > 10000){
+                mat.row(r).col(c) = 10000;
+            }
+            else
+            {
+                mat.row(r).col(c) = std::max(std::min(proj_depth[r*width+c]/4.0, 1.0), 0.0);
+            }
+        }
+    }
+
+    return mat;
+}
+
+void Iaicp::writeResidualImgToFile(Affine3f transform, string fileName) const
+{
+    std::vector<double> proj_depth(width*height);//warped image
+
+    for(int i = 0; i < width*height; i++)
+    {
+        proj_depth[i] = 1e10;
+    }
+    for(size_t c = 0; c < width; c++)
+    {
+        for(size_t r = 0; r < height; r++)
+        {
+            PointT point = m_src->points[r*width+c];
 
             //warp
             point = transformPoint(point, transform);
@@ -317,17 +367,97 @@ Mat Iaicp::cloudToImage(const CloudPtr &cloud, Affine3f transform)
             }
         }
     }
-    Mat mat(height, width, CV_32F);
-    for(size_t c= 0; c < width; c++)
+
+    ofstream myfile;
+    myfile.open (fileName.c_str());
+    for(int i = 0; i < width*height; i++)
+    {
+        PointT p = m_tgt->points[i];
+        if(proj_depth[i] < 1e5 && p.z == p.z)
+        {
+
+            myfile<<proj_depth[i]-p.z<<endl;
+        }
+    }
+    myfile.close();
+}
+
+void Iaicp::llhAndInfomatrix(Affine3f transform, double &llh, dvo::core::Matrix6d &Information)
+{
+    std::vector<double> proj_depth(width*height);//warped image
+
+    //warp
+    for(int i = 0; i < width*height; i++)
+    {
+        proj_depth[i] = 1e10;
+    }
+    for(size_t c = 0; c < width; c++)
     {
         for(size_t r = 0; r < height; r++)
         {
-            mat.row(r).col(c) = std::max(std::min(proj_depth[r*width+c]/5.0, 1.0), 0.0);
+            PointT point = m_src->points[r*width+c];
+
+            //warp
+            point = transformPoint(point, transform);
+
+            int c_t = floor(point.x*fx/point.z + cx);
+            int r_t = floor(point.y*fy/point.z + cy);
+
+            if (c_t >=0 && c_t < width && r_t >=0 && r_t < height)
+            {
+                if(point.z < proj_depth[r_t*width + c_t])
+                {
+                    proj_depth[r_t*width + c_t] = point.z;
+                }
+            }
         }
     }
 
-    return mat;
+    //calculate mean
+    int count = 0;
+    double sum = 0;
+    for(int i = 0; i < width*height; i++)
+    {
+        if(proj_depth[i] < 1e5)
+        {
+            sum += proj_depth[i];
+            count++;
+        }
+    }
+    double mean = sum/count;
+
+    //calculate variance --> informationmatrix
+    sum = 0;
+    for(int i = 0; i < width*height; i++)
+    {
+        if(proj_depth[i] < 1e5)
+        {
+            sum += (proj_depth[i] - mean) * (proj_depth[i] - mean);
+        }
+    }
+    double variance = sum / count;
+
+    Information = dvo::core::Matrix6d::Identity() * variance;
+
+
+    //calculate mean absolute error (loglikelihood)
+    double errorSum = 0;
+    count = 0;
+    for(int i = 0; i < width*height; i++)
+    {
+        PointT p = m_tgt->points[i];
+        if(proj_depth[i] < 1e5 &&  p.z == p.z)
+        {
+
+            errorSum += abs(proj_depth[i]-p.z);
+            count++;
+        }
+        //        else if(p.z != p.z)
+        //        {
+        //            cout<<"min(nan,1) "<<std::min(p.z,1.0f)<<endl;
+        //            cout<<"max(nan,0) "<<std::max(p.z,0.0f)<<endl;
+        //            cout<<"max(std::min(nan,1.0f),0) "<<std::max(std::min(p.z,1.0f),0.0f)<<endl;
+        //        }
+    }
+    llh = -errorSum/count*1000;
 }
-
-
-

@@ -25,40 +25,50 @@ namespace dvo_slam
 
 void TrackingResultEvaluation::add(const dvo::DenseTracker::Result& r)
 {
-  average_ += value(r);
-  n_ += 1.0;
+    average_ += value(r);
+    n_ += 1.0;
 }
 
 double TrackingResultEvaluation::ratioWithFirst(const dvo::DenseTracker::Result& r) const
 {
-  return value(r) / first_;
+    return value(r) / first_;
 }
 
 double TrackingResultEvaluation::ratioWithAverage(const dvo::DenseTracker::Result& r) const
 {
-  return value(r) / average_* n_;
+    return value(r) / average_* n_;
 }
 
 TrackingResultEvaluation::TrackingResultEvaluation(double first)
 {
-  first_ = first;
-  average_ = first_;
-  n_ = 1.0;
+    first_ = first;
+    average_ = first_;
+    n_ = 1.0;
 }
 
 double EntropyRatioTrackingResultEvaluation::value(const dvo::DenseTracker::Result& r) const
 {
-  return std::log(r.Information.determinant());
+    return std::log(r.Information.determinant());
 }
 
 double LogLikelihoodTrackingResultEvaluation::value(const dvo::DenseTracker::Result& r) const
 {
-  return -r.LogLikelihood;
+//    std::ofstream myfile;
+//    myfile.open ("/home/liubing/Documents/loglikelihood.txt",std::ios::out| std::ios::app);
+//    if(myfile.is_open()){
+//        //std::cout<<"printing loglikelihood"<<r.LogLikelihood<<std::endl;
+//        myfile<< r.LogLikelihood<<"\n";
+//    }
+//    else{
+//        std::cout<<"file is not opened"<<std::endl;
+//    }
+//    myfile.close();
+    return -r.LogLikelihood;
 }
 
 double NormalizedLogLikelihoodTrackingResultEvaluation::value(const dvo::DenseTracker::Result& r) const
 {
-  return -r.LogLikelihood / r.Statistics.Levels.back().Iterations.back().ValidConstraints;
+    return -r.LogLikelihood / r.Statistics.Levels.back().Iterations.back().ValidConstraints;
 }
 
 } /* namespace dvo_slam */

@@ -20,6 +20,7 @@
 
 #include "common.h"
 
+#include "dvo/core/datatypes.h"
 #include <Eigen/Dense>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/registration/transformation_estimation_svd.h>
@@ -33,6 +34,7 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
+#include <string>
 //using namespace pcl;
 //using namespace pcl::registration;
 //using namespace Eigen;
@@ -58,6 +60,8 @@ public:
     Vector6f toVector(Eigen::Affine3f pose);
 
     cv::Mat cloudToImage(const CloudPtr& cloud, Eigen::Affine3f transform = Eigen::Affine3f::Identity());
+    void writeResidualImgToFile(Eigen::Affine3f transform, std::string fileName) const;
+    void llhAndInfomatrix(Eigen::Affine3f transform, double &llh, dvo::core::Matrix6d &Information);
 private:
     /*performs one level of iterations of the IaICP method
     maxDist: max. distance allowed between correspondences.
