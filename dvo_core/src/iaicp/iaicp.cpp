@@ -413,36 +413,11 @@ void Iaicp::llhAndInfomatrix(Affine3f transform, double &llh, dvo::core::Matrix6
         }
     }
 
-    //calculate mean
-    int count = 0;
-    double sum = 0;
-    for(int i = 0; i < width*height; i++)
-    {
-        if(proj_depth[i] < 1e5)
-        {
-            sum += proj_depth[i];
-            count++;
-        }
-    }
-    double mean = sum/count;
-
-    //calculate variance --> informationmatrix
-    sum = 0;
-    for(int i = 0; i < width*height; i++)
-    {
-        if(proj_depth[i] < 1e5)
-        {
-            sum += (proj_depth[i] - mean) * (proj_depth[i] - mean);
-        }
-    }
-    double variance = sum / count;
-
-    Information = dvo::core::Matrix6d::Identity() * variance;
 
 
     //calculate mean absolute error (loglikelihood)
     double errorSum = 0;
-    count = 0;
+    int count = 0;
     for(int i = 0; i < width*height; i++)
     {
         PointT p = m_tgt->points[i];
@@ -459,5 +434,87 @@ void Iaicp::llhAndInfomatrix(Affine3f transform, double &llh, dvo::core::Matrix6
         //            cout<<"max(std::min(nan,1.0f),0) "<<std::max(std::min(p.z,1.0f),0.0f)<<endl;
         //        }
     }
-    llh = -errorSum/count*1000;
+
+    double mean = errorSum/count;
+    llh = -mean*1000;
+
+    //calculate variance --> informationmatrix
+    double varianceSum = 0;
+    count = 0;
+    for(int i = 0; i < width*height; i++)
+    {
+        PointT p = m_tgt->points[i];
+        if(proj_depth[i] < 1e5 &&  p.z == p.z)
+        {
+            varianceSum += (abs(proj_depth[i]-p.z) - mean) * (abs(proj_depth[i]-p.z) - mean);
+            count++;
+        }
+    }
+    double variance = varianceSum / count;
+
+    Information = dvo::core::Matrix6d::Identity() * variance * variance;
+
+
+}
+
+bool Iaicp::match(dvo::core::PointSelection &ref, dvo::core::RgbdImagePyramid &cur, dvo::DenseTracker::Result &result)
+{
+    match(ref.getRgbdImagePyramid(),cur,result);
+}
+
+bool Iaicp::match(dvo::core::RgbdImagePyramid &ref, dvo::core::RgbdImagePyramid &cur, dvo::DenseTracker::Result &result)
+{
+    Eigen::Affine3f result_key;
+    CloudPtr tmp_s, tmp_t;
+    tmp_s = Mat2Cloud(cur.level(0).rgb, cur.level(0).depth);
+
+    tmp_t = Mat2Cloud(ref.level(0).rgb,
+                      ref.level(0).depth);
+
+    setupSource(tmp_s);
+    setupTarget(tmp_t);
+    run();
+    result_key = getTransResult();
+
+    dvo::core::Matrix6d information;
+    double loglikelihood;
+    llhAndInfomatrix(result_key,loglikelihood,information);
+
+    for(int r = 0; r < 4; r++)
+    {
+        for(int c = 0; c < 4; c++)
+        {
+                      result.Transformation(r,c) = result_key(r,c);
+        }
+    }
+    result.Information = information;
+    result.LogLikelihood = loglikelihood;
+
+
+    if(saveImage_)
+    {
+        mat_source_= cloudToImage(tmp_s);
+        mat_source_.convertTo(mat_source_, CV_8UC3, 255.0);
+
+        mat_target_ = cloudToImage(tmp_t);
+        mat_target_.convertTo(mat_target_, CV_8UC3, 255.0);
+
+        mat_trans_ = cloudToImage(tmp_s, result_key);
+        mat_trans_.convertTo(mat_trans_, CV_8UC3, 255.0);
+
+        cv::absdiff(mat_trans_ , mat_target_, mat_residual_);
+    }
+}
+
+void Iaicp::setSaveImage(bool saveImage)
+{
+    saveImage_ = saveImage;
+}
+
+void Iaicp::getMat(Mat &m_source, Mat &m_target, Mat &m_trans, Mat &m_residual)
+{
+    m_source = mat_source_;
+    m_target = mat_target_;
+    m_trans = mat_trans_;
+    m_residual = mat_residual_;
 }

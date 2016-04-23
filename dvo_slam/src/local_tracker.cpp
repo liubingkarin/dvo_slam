@@ -65,6 +65,15 @@ struct LocalTrackerImpl
     {
         tracker->match(*ref, *cur, *r);
     }
+
+    static void match_iaicp(const PointSelectionPtr& ref,
+                            const dvo::core::RgbdImagePyramid::Ptr& cur,
+                            LocalTracker::TrackingResult* result)
+    {
+        Iaicp iaicp;
+        iaicp.match(*ref,*cur,*result);
+
+    }
 };
 } /* namespace internal */
 
@@ -186,96 +195,52 @@ void LocalTracker::update(const dvo::core::RgbdImagePyramid::Ptr& image, dvo::co
     impl_->active_frame_points_->setRgbdImagePyramid(*local_map_->getCurrentFrame());
 
 
-    Eigen::Affine3f result_key, result_odo;
+       //TEST write warped image into file
+    //iaicp.writeResidualImgToFile(result_key,"/home/liubing/Documents/images/"+boost::lexical_cast<std::string>(g_frameCounter)+".txt");
+
+    //TEST loglikelihood
+    //        double loglikelihood = iaicp.loglikelihood(result_key);
+    //        std::ofstream myfile;
+    //        myfile.open("/home/liubing/Documents/myLoglikelihood.txt",std::ios::app);
+    //        myfile<<loglikelihood<<std::endl;
+    //        myfile.close();
+    //END OF TEST loglikelihood
+
+
+    // TODO: fix me!
+    //   boost::function<void()> h1 = boost::bind(&internal::LocalTrackerImpl::match, impl_->keyframe_tracker_, impl_->keyframe_points_, image, &r_keyframe);
+    //    boost::function<void()> h2 = boost::bind(&internal::LocalTrackerImpl::match, impl_->odometry_tracker_, impl_->active_frame_points_, image,  &r_odometry);
+    //internal::LocalTrackerImpl::match_iaicp(impl_->keyframe_points_, image, &r_keyframe);
+    //internal::LocalTrackerImpl::match_iaicp(impl_->active_frame_points_, image,  &r_odometry);
+
+
+    bool drawImg = false;
+    Iaicp iaicp1, iaicp2;
+    iaicp1.setSaveImage(drawImg);
+    iaicp2.setSaveImage(drawImg);
+    iaicp1.match(*(impl_->keyframe_points_),*image,*(&r_keyframe));
+    iaicp2.match(*(impl_->active_frame_points_),*image,*(&r_odometry));
+
+    if(drawImg)
     {
-        Iaicp iaicp;
-        CloudPtr tmp_s, tmp_t;
-        tmp_s = iaicp.Mat2Cloud(image->level(0).rgb, image->level(0).depth);
-
-        tmp_t = iaicp.Mat2Cloud(impl_->keyframe_points_->getRgbdImagePyramid().level(0).rgb,
-                                impl_->keyframe_points_->getRgbdImagePyramid().level(0).depth);
-
-        cv::Mat  mat_s = iaicp.cloudToImage(tmp_s);
-        mat_s.convertTo(mat_s, CV_8UC3, 255.0);
-        //cv::imwrite( std::string("/home/liubing/Documents/images/source") +  boost::lexical_cast<std::string>(g_frameCounter) + ".jpg", mat_s);
-
-        cv::Mat mat_t = iaicp.cloudToImage(tmp_t);
-        mat_t.convertTo(mat_t, CV_8UC3, 255.0);
-        //cv::imwrite( std::string("/home/liubing/Documents/images/target") + boost::lexical_cast<std::string>(g_frameCounter) + ".jpg", mat_t);
-
-        iaicp.setupSource(tmp_s);
-        iaicp.setupTarget(tmp_t);
-        iaicp.run();
-        result_key = iaicp.getTransResult();
-
-        cv::Mat mat_trans_tmp = iaicp.cloudToImage(tmp_s, result_key);
-        cv::Mat mat_trans(mat_trans_tmp.rows,mat_trans_tmp.cols,CV_8UC3);
-        mat_trans_tmp.convertTo(mat_trans, CV_8UC3, 255.0);
-
-//        for(size_t c = 0; c < mat_trans.cols; c++)
-//        {
-//            for(size_t r = 0; r < mat_trans.rows; r++)
-//            {
-//                if(/*mat_trans_tmp.at<float>(cv::Point(c,r)) > 1*/true)
-//                {
-//                    mat_trans.at<cv::Vec3b>(r,c) = cv::Vec3b(0,0,0);
-//                }
-//            }
-//         }
-        //cv::imwrite( std::string("/home/liubing/Documents/images/source_trans") + boost::lexical_cast<std::string>(g_frameCounter) + ".jpg", mat_trans);
-
-        //TEST write warped image into file
-        iaicp.writeResidualImgToFile(result_key,"/home/liubing/Documents/images/"+boost::lexical_cast<std::string>(g_frameCounter)+".txt");
-
-        //TEST loglikelihood
-//        double loglikelihood = iaicp.loglikelihood(result_key);
-//        std::ofstream myfile;
-//        myfile.open("/home/liubing/Documents/myLoglikelihood.txt",std::ios::app);
-//        myfile<<loglikelihood<<std::endl;
-//        myfile.close();
-        //END OF TEST loglikelihood
-
-        dvo::core::Matrix6d information;
-        double loglikelihood;
-        iaicp.llhAndInfomatrix(result_key,loglikelihood,information);
-
-        cv::Mat residual;
-        cv::absdiff(mat_trans , mat_t, residual);
-        //cv::imwrite( std::string("/home/liubing/Documents/images/residual") + boost::lexical_cast<std::string>(g_frameCounter) + ".jpg", residual);
-
-
-        cv::Mat residual_;
-        cv::absdiff(mat_s , mat_t, residual_);
-        //cv::imwrite( std::string("/home/liubing/Documents/images/residual__") + boost::lexical_cast<std::string>(g_frameCounter) + ".jpg", residual_);
-
+        //TODO only draw images of iaicp1 !!!!!!!!
+        cv::Mat m_source,m_target,m_trans,m_residual;
+        iaicp1.getMat(m_source, m_target, m_trans,m_residual);
         cv::Mat imTop;
-        cv::hconcat(mat_s, mat_trans, imTop);
+        cv::hconcat(m_source, m_trans, imTop);
         cv::Mat imBottom;
-        cv::hconcat(residual, mat_t, imBottom);
+        cv::hconcat(m_residual, m_target, imBottom);
         cv::Mat imAll;
         cv::vconcat(imTop, imBottom, imAll);
 
         cv::imwrite( std::string("/home/liubing/Documents/images/imAll") + boost::lexical_cast<std::string>(g_frameCounter) + ".jpg", imAll);
-    }
-    {
-        Iaicp iaicp;
-        CloudPtr tmp_s, tmp_t;
-        tmp_s = iaicp.Mat2Cloud(image->level(0).rgb, image->level(0).depth);
-        iaicp.setupSource(tmp_s);
 
-        tmp_t = iaicp.Mat2Cloud(impl_->active_frame_points_->getRgbdImagePyramid().level(0).rgb,
-                                impl_->active_frame_points_->getRgbdImagePyramid().level(0).depth);
-        iaicp.setupTarget(tmp_t);
-        iaicp.run();
-        result_odo = iaicp.getTransResult();
     }
-    // TODO: fix me!
-    boost::function<void()> h1 = boost::bind(&internal::LocalTrackerImpl::match, impl_->keyframe_tracker_, impl_->keyframe_points_, image, &r_keyframe);
-    boost::function<void()> h2 = boost::bind(&internal::LocalTrackerImpl::match, impl_->odometry_tracker_, impl_->active_frame_points_, image,  &r_odometry);
 
-    sw_match.start();
-    tbb::parallel_invoke(h1, h2);
-    sw_match.stopAndPrint();
+
+    //    sw_match.start();
+    //    tbb::parallel_invoke(h1, h2);
+    //    sw_match.stopAndPrint();
 
     //  ROS_INFO("ICP result trans: %f %f %f", result.translation()(0), result.translation()(1), result.translation()(2));
     //  ROS_INFO("DVO result trans: %f %f %f", r_keyframe.Transformation.translation()(0),
@@ -287,15 +252,6 @@ void LocalTracker::update(const dvo::core::RgbdImagePyramid::Ptr& image, dvo::co
     //           r_keyframe.Transformation.rotation()(1),
     //           r_keyframe.Transformation.rotation()(2),
     //           r_keyframe.Transformation.rotation()(3));
-
-    for(int r = 0; r < 4; r++)
-    {
-        for(int c = 0; c < 4; c++)
-        {
-            //          r_keyframe.Transformation(r,c) = result_key(r,c);
-            //          r_odometry.Transformation(r,c) = result_odo(r,c);
-        }
-    }
 
     ROS_WARN_COND(r_odometry.isNaN(), "NAN in Odometry");
     ROS_WARN_COND(r_keyframe.isNaN(), "NAN in Keyframe");

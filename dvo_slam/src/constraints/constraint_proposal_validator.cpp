@@ -22,6 +22,7 @@
 
 #include <boost/bind.hpp>
 #include <algorithm>
+#include <iaicp/iaicp.h>
 
 namespace dvo_slam
 {
@@ -143,6 +144,8 @@ void ConstraintProposalValidator::validate(Stage& stage, ConstraintProposalVecto
     ConstraintProposalPtr& p = (*it);
     p->TrackingResult.Transformation = p->InitialTransformation;
     tracker_.match(*p->Reference->image(), *p->Current->image(), p->TrackingResult);
+    Iaicp iaicp;
+    iaicp.match(*p->Reference->image(), *p->Current->image(), p->TrackingResult);
   }
 
   // collect votes for all proposals

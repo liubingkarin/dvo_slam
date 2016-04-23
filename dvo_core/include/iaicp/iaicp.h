@@ -33,7 +33,8 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
-
+#include <dvo/dense_tracking.h>
+#include <dvo/dense_tracking_impl.h>
 #include <string>
 //using namespace pcl;
 //using namespace pcl::registration;
@@ -62,6 +63,12 @@ public:
     cv::Mat cloudToImage(const CloudPtr& cloud, Eigen::Affine3f transform = Eigen::Affine3f::Identity());
     void writeResidualImgToFile(Eigen::Affine3f transform, std::string fileName) const;
     void llhAndInfomatrix(Eigen::Affine3f transform, double &llh, dvo::core::Matrix6d &Information);
+
+    bool match(dvo::core::PointSelection& reference, dvo::core::RgbdImagePyramid& current, dvo::DenseTracker::Result& result);
+    bool match(dvo::core::RgbdImagePyramid& reference, dvo::core::RgbdImagePyramid& current, dvo::DenseTracker::Result& result);
+
+    void setSaveImage(bool saveImg = false);
+    void getMat(cv::Mat &m_source, cv::Mat &m_target, cv::Mat &m_trans, cv::Mat &m_residual);
 private:
     /*performs one level of iterations of the IaICP method
     maxDist: max. distance allowed between correspondences.
@@ -81,6 +88,11 @@ private:
     Eigen::Affine3f m_trans; //the transformation that transforms source frame to target frame.
     Eigen::Affine3f m_predict; //the prediction of source2target transformaiton.
 
+    bool saveImage_;
+    cv::Mat mat_source_;
+    cv::Mat mat_target_;
+    cv::Mat mat_trans_;
+    cv::Mat mat_residual_;
 };
 
 
