@@ -74,14 +74,25 @@ void Iaicp::setupPredict(Affine3f pred)
 
 }
 
+void Iaicp::setupPredict(Affine3d pred)
+{
+    for(int r = 0; r < 4; r++)
+    {
+        for(int c = 0; c < 4; c++)
+        {
+            m_trans(r,c) = pred(r,c);
+        }
+    }
+}
+
 
 void Iaicp::sampleSource()
 {
-    cout<<m_src->points.size()<<"  "<<m_tgt->points.size()<<endl;
+    //cout<<m_src->points.size()<<"  "<<m_tgt->points.size()<<endl;
     m_salientSrc.reset(new Cloud());
     int cnt=0;
     int begin = 2+rand()%2;
-    cout<<width<<"  "<<height<<endl;
+    //cout<<width<<"  "<<height<<endl;
     for(size_t i=begin; i<width-begin-4; i+=3){
         for(size_t j=begin; j<height-begin-4; j+=3){
             PointT pt=m_src->points[j*width+i];
@@ -149,7 +160,7 @@ void Iaicp::sampleSource()
     }
     vector<int> indices;
     pcl::removeNaNFromPointCloud(*m_salientSrc, *m_salientSrc, indices);
-    cout<<"sampled "<< cnt<<" salient points"<<endl;
+    //cout<<"sampled "<< cnt<<" salient points"<<endl;
 }
 
 void Iaicp::run()
@@ -417,7 +428,9 @@ void Iaicp::llhAndInfomatrix(Affine3f transform, double &llh, dvo::core::Matrix6
 
     //calculate mean absolute error (loglikelihood)
     double errorSum = 0;
+    double negErrSum = 0;
     int count = 0;
+    double goodSum = 1.0;
     for(int i = 0; i < width*height; i++)
     {
         PointT p = m_tgt->points[i];
@@ -425,6 +438,13 @@ void Iaicp::llhAndInfomatrix(Affine3f transform, double &llh, dvo::core::Matrix6
         {
 
             errorSum += abs(proj_depth[i]-p.z);
+            negErrSum += std::max((0.005 - abs(proj_depth[i]-p.z)), -0.001);
+            if(abs(proj_depth[i]-p.z) < 0.005){
+                goodSum += 1.0;
+            }
+            if(abs(proj_depth[i]-p.z) > 0.02){
+                goodSum -= 1.0;
+            }
             count++;
         }
         //        else if(p.z != p.z)
@@ -436,7 +456,8 @@ void Iaicp::llhAndInfomatrix(Affine3f transform, double &llh, dvo::core::Matrix6
     }
 
     double mean = errorSum/count;
-    llh = -mean*1000;
+    llh = -std::max(negErrSum, 0.01)/count*1000;
+    //llh = -std::max(goodSum, 1.0)/count;
 
     //calculate variance --> informationmatrix
     double varianceSum = 0;
@@ -453,7 +474,7 @@ void Iaicp::llhAndInfomatrix(Affine3f transform, double &llh, dvo::core::Matrix6
     double variance = varianceSum / count;
 
     Information = dvo::core::Matrix6d::Identity() * variance * variance;
-
+    //cout << "variance  " << variance;
 
 }
 
@@ -484,7 +505,7 @@ bool Iaicp::match(dvo::core::RgbdImagePyramid &ref, dvo::core::RgbdImagePyramid 
     {
         for(int c = 0; c < 4; c++)
         {
-                      result.Transformation(r,c) = result_key(r,c);
+            result.Transformation(r,c) = result_key(r,c);
         }
     }
     result.Information = information;

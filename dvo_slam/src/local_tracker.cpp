@@ -169,6 +169,7 @@ void LocalTracker::initNewLocalMap(const dvo::core::RgbdImagePyramid::Ptr& keyfr
 }
 
 int g_frameCounter = 0;
+int g_keyframe_counter = 0;
 
 void LocalTracker::update(const dvo::core::RgbdImagePyramid::Ptr& image, dvo::core::AffineTransformd& pose)
 {
@@ -208,39 +209,44 @@ void LocalTracker::update(const dvo::core::RgbdImagePyramid::Ptr& image, dvo::co
 
 
     // TODO: fix me!
-    //   boost::function<void()> h1 = boost::bind(&internal::LocalTrackerImpl::match, impl_->keyframe_tracker_, impl_->keyframe_points_, image, &r_keyframe);
-    //    boost::function<void()> h2 = boost::bind(&internal::LocalTrackerImpl::match, impl_->odometry_tracker_, impl_->active_frame_points_, image,  &r_odometry);
-    //internal::LocalTrackerImpl::match_iaicp(impl_->keyframe_points_, image, &r_keyframe);
-    //internal::LocalTrackerImpl::match_iaicp(impl_->active_frame_points_, image,  &r_odometry);
-
-
-    bool drawImg = false;
-    Iaicp iaicp1, iaicp2;
-    iaicp1.setSaveImage(drawImg);
-    iaicp2.setSaveImage(drawImg);
-    iaicp1.match(*(impl_->keyframe_points_),*image,*(&r_keyframe));
-    iaicp2.match(*(impl_->active_frame_points_),*image,*(&r_odometry));
-
-    if(drawImg)
+    if(false)
     {
-        //TODO only draw images of iaicp1 !!!!!!!!
-        cv::Mat m_source,m_target,m_trans,m_residual;
-        iaicp1.getMat(m_source, m_target, m_trans,m_residual);
-        cv::Mat imTop;
-        cv::hconcat(m_source, m_trans, imTop);
-        cv::Mat imBottom;
-        cv::hconcat(m_residual, m_target, imBottom);
-        cv::Mat imAll;
-        cv::vconcat(imTop, imBottom, imAll);
+        boost::function<void()> h1 = boost::bind(&internal::LocalTrackerImpl::match, impl_->keyframe_tracker_, impl_->keyframe_points_, image, &r_keyframe);
+        boost::function<void()> h2 = boost::bind(&internal::LocalTrackerImpl::match, impl_->odometry_tracker_, impl_->active_frame_points_, image,  &r_odometry);
 
-        cv::imwrite( std::string("/home/liubing/Documents/images/imAll") + boost::lexical_cast<std::string>(g_frameCounter) + ".jpg", imAll);
+        sw_match.start();
+        tbb::parallel_invoke(h1, h2);
+        sw_match.stopAndPrint();
+    }
+    else
+    {
+        bool drawImg = false;
+        Iaicp iaicp1, iaicp2;
+        iaicp1.setSaveImage(drawImg);
+        iaicp2.setSaveImage(drawImg);
+
+        iaicp1.setupPredict(r_keyframe.Transformation.inverse(Eigen::Isometry));
+
+        iaicp1.match(*(impl_->keyframe_points_),*image,*(&r_keyframe));
+        iaicp2.match(*(impl_->active_frame_points_),*image,*(&r_odometry));
+
+        if(drawImg)
+        {
+            //TODO only draw images of iaicp1 !!!!!!!!
+            cv::Mat m_source,m_target,m_trans,m_residual;
+            iaicp1.getMat(m_source, m_target, m_trans,m_residual);
+            cv::Mat imTop;
+            cv::hconcat(m_source, m_trans, imTop);
+            cv::Mat imBottom;
+            cv::hconcat(m_residual, m_target, imBottom);
+            cv::Mat imAll;
+            cv::vconcat(imTop, imBottom, imAll);
+
+            cv::imwrite( std::string("/home/liubing/Documents/images/imAll") + boost::lexical_cast<std::string>(g_frameCounter) + ".jpg", imAll);
+
+        }
 
     }
-
-
-    //    sw_match.start();
-    //    tbb::parallel_invoke(h1, h2);
-    //    sw_match.stopAndPrint();
 
     //  ROS_INFO("ICP result trans: %f %f %f", result.translation()(0), result.translation()(1), result.translation()(2));
     //  ROS_INFO("DVO result trans: %f %f %f", r_keyframe.Transformation.translation()(0),
@@ -268,6 +274,8 @@ void LocalTracker::update(const dvo::core::RgbdImagePyramid::Ptr& image, dvo::co
     }
     else
     {
+        ROS_INFO("******************* Add new key frame***************************  %d", ++g_keyframe_counter);
+
         impl_->force_ = false;
         impl_->keyframe_points_.swap(impl_->active_frame_points_);
 

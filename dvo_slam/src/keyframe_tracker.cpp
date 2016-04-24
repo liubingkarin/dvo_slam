@@ -110,6 +110,7 @@ public:
     m3.data = evaluation->ratioWithFirst(r_keyframe);
 
     bool accept = m3.data > cfg_.MinEntropyRatio;
+    ROS_INFO("m1.data %f, m3.data  %f, cfg_.MinEntropyRatio %f, accept %d", m1.data, m3.data, cfg_.MinEntropyRatio, accept);
 
     if(accept)
       evaluation->add(r_keyframe);
@@ -131,8 +132,6 @@ public:
     //md_pub_.publish(md);
 
     bool reject1 = r_odometry.Transformation.translation().norm() > 0.1 || r_keyframe.Transformation.translation().norm() > 1.5 * cfg_.MaxTranslationalDistance;
-
-
 
     // TODO: awful hack
     if(reject1)

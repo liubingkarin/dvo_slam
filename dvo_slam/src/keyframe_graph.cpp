@@ -357,7 +357,7 @@ public:
 
     if(r != constraint_tracking_results_.end())
     {
-      std::cerr << r->second.Statistics << std::endl;
+      //std::cerr << r->second.Statistics << std::endl;
       std::cerr << "min_entropy_ratio_fine: " << std::min(kf1->evaluation()->ratioWithAverage(r->second), kf2->evaluation()->ratioWithAverage(r->second)) << std::endl;
 
       Eigen::Vector3d rho;
@@ -367,8 +367,8 @@ public:
        rho.setOnes();
 
       std::cerr << "chi2: " << e->chi2() << " weight: " << rho(1) << std::endl;
-      std::cerr << "kappa fine: " << r->second.Statistics.Levels.back().LastIterationWithIncrement().InformationConditionNumber() << std::endl;
-      std::cerr << "kappa coarse: " << r->second.Statistics.Levels.front().LastIterationWithIncrement().InformationConditionNumber() << std::endl;
+      //std::cerr << "kappa fine: " << r->second.Statistics.Levels.back().LastIterationWithIncrement().InformationConditionNumber() << std::endl;
+      //std::cerr << "kappa coarse: " << r->second.Statistics.Levels.front().LastIterationWithIncrement().InformationConditionNumber() << std::endl;
     }
 
     return result;

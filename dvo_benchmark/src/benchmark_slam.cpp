@@ -459,11 +459,12 @@ void BenchmarkNode::run()
   for(std::vector<dvo_benchmark::RgbdPair>::iterator it = pairs.begin(); ros::ok() && it != pairs.end(); ++it)
   {
     loop_counter++;
-    if(loop_counter < 100)
+    if(loop_counter)
     {
         ROS_INFO("loop %i", loop_counter);
     }
-    else if (loop_counter == 100){
+
+    if (loop_counter == 100){
         ROS_INFO("loop 100 time %i",(clock()-time_start)/CLOCKS_PER_SEC);
     }
 

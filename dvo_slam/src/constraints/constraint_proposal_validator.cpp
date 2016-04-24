@@ -143,8 +143,9 @@ void ConstraintProposalValidator::validate(Stage& stage, ConstraintProposalVecto
   {
     ConstraintProposalPtr& p = (*it);
     p->TrackingResult.Transformation = p->InitialTransformation;
-    tracker_.match(*p->Reference->image(), *p->Current->image(), p->TrackingResult);
+    //tracker_.match(*p->Reference->image(), *p->Current->image(), p->TrackingResult);
     Iaicp iaicp;
+    iaicp.setupPredict(p->InitialTransformation.inverse(Eigen::Isometry));
     iaicp.match(*p->Reference->image(), *p->Current->image(), p->TrackingResult);
   }
 

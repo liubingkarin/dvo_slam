@@ -52,6 +52,7 @@ public:
     void setupSource(CloudPtr &source);
     void setupTarget(CloudPtr &target);
     void setupPredict(Eigen::Affine3f pred); //set up prediction of transformation
+    void setupPredict(Eigen::Affine3d pred); //set up prediction of transformation
     void run();  //performs the iterative registration
     Eigen::Affine3f getTransResult(){return m_trans;} //returns the estimated transformation result
     CloudPtr getSalientSource(){return m_salientSrc;}
