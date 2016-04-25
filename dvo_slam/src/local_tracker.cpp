@@ -146,7 +146,10 @@ void LocalTracker::initNewLocalMap(const dvo::core::RgbdImagePyramid::Ptr& keyfr
     TrackingResult r_odometry;
     r_odometry.Transformation.setIdentity();
 
-    impl_->odometry_tracker_->match(*(impl_->keyframe_points_), *frame, r_odometry);
+    //impl_->odometry_tracker_->match(*(impl_->keyframe_points_), *frame, r_odometry);
+    Iaicp iaicp;
+    iaicp.match(*(impl_->keyframe_points_), *frame, r_odometry);
+
     impl_->last_keyframe_pose_ = r_odometry.Transformation;
 
     initNewLocalMap(keyframe, frame, r_odometry, keyframe_pose);
