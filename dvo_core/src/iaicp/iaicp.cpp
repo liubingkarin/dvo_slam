@@ -324,7 +324,7 @@ Mat Iaicp::cloudToImage(const CloudPtr &cloud, Affine3f transform)
             {
                 if(point.z < proj_depth[r_t*width + c_t])
                 {
-                    proj_depth[r_t*width + c_t] = 0;
+                    proj_depth[r_t*width + c_t] = point.z;
 
                 }
             }
