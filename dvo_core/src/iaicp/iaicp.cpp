@@ -93,8 +93,8 @@ void Iaicp::sampleSource()
     int cnt=0;
     int begin = 2+rand()%2;
     //cout<<width<<"  "<<height<<endl;
-    for(size_t i=begin; i<width-begin-4; i+=3){
-        for(size_t j=begin; j<height-begin-4; j+=3){
+    for(size_t i=begin; i<width-begin-4; i+=4){
+        for(size_t j=begin; j<height-begin-4; j+=4){
             PointT pt=m_src->points[j*width+i];
             if (pt.z!=pt.z || pt.z>8.f) {continue;}  //continue if no depth value available
 
@@ -166,7 +166,7 @@ void Iaicp::sampleSource()
 void Iaicp::run()
 {
     sampleSource();
-    int iterPerLevel = 10;
+    int iterPerLevel = 5;
     int offset=6, maxDist=0.12f;
     iterateLevel(maxDist, offset, iterPerLevel);
     offset=3; maxDist=0.06f;
@@ -185,7 +185,7 @@ void Iaicp::iterateLevel(float maxDist, int offset, int maxiter) //performs one 
 
         int counter=0;   //counter for how many number of correspondences have been already used
         for(size_t i=0; i<m_salientSrc->points.size(); i++){
-            if (counter>=100) break;    //only use  limited number of pairs of correspondences.
+            if (counter>=50) break;    //only use  limited number of pairs of correspondences.
             int thisIndex =  rand()%m_salientSrc->points.size();  //randomly select one salient point
             PointT temp = m_salientSrc->points[thisIndex];   //selected source ponint
             PointT pt=transformPoint(temp, m_trans);   //warped source point
@@ -485,22 +485,30 @@ bool Iaicp::match(dvo::core::PointSelection &ref, dvo::core::RgbdImagePyramid &c
 
 bool Iaicp::match(dvo::core::RgbdImagePyramid &ref, dvo::core::RgbdImagePyramid &cur, dvo::DenseTracker::Result &result)
 {
+    double time_start = pcl::getTime();
     Eigen::Affine3f result_key;
     CloudPtr tmp_s, tmp_t;
+    double time_core_start = pcl::getTime();
     tmp_s = Mat2Cloud(cur.level(0).rgb, cur.level(0).depth);
 
     tmp_t = Mat2Cloud(ref.level(0).rgb,
                       ref.level(0).depth);
 
+
     setupSource(tmp_s);
     setupTarget(tmp_t);
     run();
     result_key = getTransResult();
+    cout<<"iaicp core time "<<pcl::getTime()-time_core_start;
 
     dvo::core::Matrix6d information;
     double loglikelihood;
-    llhAndInfomatrix(result_key,loglikelihood,information);
 
+    double time_llh_start = pcl::getTime();
+    //llhAndInfomatrix(result_key,loglikelihood,information);
+    cout<<" llh time "<<pcl::getTime()-time_llh_start;
+    loglikelihood = 1;
+    information = dvo::core::Matrix6d::Identity();
     for(int r = 0; r < 4; r++)
     {
         for(int c = 0; c < 4; c++)
@@ -525,6 +533,7 @@ bool Iaicp::match(dvo::core::RgbdImagePyramid &ref, dvo::core::RgbdImagePyramid 
 
         cv::absdiff(mat_trans_ , mat_target_, mat_residual_);
     }
+    cout<<", iaicp total time "<<pcl::getTime()-time_start<<endl;
 }
 
 void Iaicp::setSaveImage(bool saveImage)

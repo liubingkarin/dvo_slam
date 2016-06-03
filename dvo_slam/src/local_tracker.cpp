@@ -33,7 +33,7 @@
 #include <ros/console.h>
 #include <string>
 #include <fstream>
-
+#include <ctime>
 
 namespace dvo_slam
 {

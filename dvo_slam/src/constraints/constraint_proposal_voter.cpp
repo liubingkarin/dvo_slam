@@ -106,7 +106,7 @@ ConstraintProposal::Vote TrackingResultEvaluationVoter::vote(const ConstraintPro
   double ratio = proposal.Reference->evaluation()->ratioWithAverage(proposal.TrackingResult);
 
   ConstraintProposal::Vote v;
-  bool useLoopClosure = true;
+  bool useLoopClosure = false;
   v.Decision = ratio >= RatioThreshold ? ConstraintProposal::Vote::Accept : ConstraintProposal::Vote::Reject;
   if(!useLoopClosure){
       v.Decision = ConstraintProposal::Vote::Reject;
