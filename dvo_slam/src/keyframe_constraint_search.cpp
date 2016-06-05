@@ -35,11 +35,13 @@ float NearestNeighborConstraintSearch::maxDistance() const
 
 void NearestNeighborConstraintSearch::maxDistance(const float& d)
 {
-  max_distance_ = d;
+    max_distance_ = d;
 }
 
 void NearestNeighborConstraintSearch::findPossibleConstraints(const KeyframeVector& all, const KeyframePtr& keyframe, KeyframeVector& candidates)
 {
+  if(!enable_loopClosure){return;}
+
   pcl::PointXYZ search_point;
   search_point.x = keyframe->pose().translation()(0);
   search_point.y = keyframe->pose().translation()(1);

@@ -59,7 +59,9 @@ ConstraintProposalValidator::Stage& ConstraintProposalValidator::Stage::addVoter
   return *this;
 }
 
-ConstraintProposalValidator::ConstraintProposalValidator() {}
+ConstraintProposalValidator::ConstraintProposalValidator()
+{
+}
 
 ConstraintProposalValidator::Stage& ConstraintProposalValidator::createStage(int id)
 {
@@ -130,6 +132,7 @@ void ConstraintProposalValidator::keepBest(ConstraintProposalVector& proposals)
   }
 }
 
+
 void ConstraintProposalValidator::validate(Stage& stage, ConstraintProposalVector& proposals, bool debug)
 {
   tracker_.configure(stage.TrackingConfig);
@@ -143,13 +146,26 @@ void ConstraintProposalValidator::validate(Stage& stage, ConstraintProposalVecto
   {
     ConstraintProposalPtr& p = (*it);
     p->TrackingResult.Transformation = p->InitialTransformation;
+
     //tracker_.match(*p->Reference->image(), *p->Current->image(), p->TrackingResult);
+
 #ifdef USE_IAICP
     Iaicp iaicp;
-    iaicp.setupPredict(p->InitialTransformation.inverse(Eigen::Isometry));
+    int iaicp_interatePerLevel = 10;
+    int iaicp_numOfFeaturePairs = 100;
+    int iaicp_searchRangePixel = 3;
+
+    iaicp.setInteratePerLevel(iaicp_interatePerLevel);
+    iaicp.setNumOfFeaturePairs(iaicp_numOfFeaturePairs);
+    iaicp.setSearchRangePixel(iaicp_searchRangePixel);
+
+    iaicp.setupPredict(p->TrackingResult.Transformation.inverse(Eigen::Isometry));
+    //dvo::DenseTracker::Result t_result;
     iaicp.match(*p->Reference->image(), *p->Current->image(), p->TrackingResult);
+
 #else
     tracker_.match(*p->Reference->image(), *p->Current->image(), p->TrackingResult);
+    //std::cout << "validate() iaicp llh: " << t_result.LogLikelihood << " dvo llh: " << p->TrackingResult.LogLikelihood << std::endl;
 #endif
   }
 

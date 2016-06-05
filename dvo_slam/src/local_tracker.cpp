@@ -31,6 +31,8 @@
 #include <tbb/tbb_thread.h>
 
 #include <ros/console.h>
+
+#include <ros/ros.h>
 #include <string>
 #include <fstream>
 #include <ctime>
@@ -54,6 +56,7 @@ struct LocalTrackerImpl
     dvo::core::AffineTransformd last_keyframe_pose_;
 
     PointSelectionPtr keyframe_points_, active_frame_points_;
+
 
     bool force_;
 
@@ -146,9 +149,12 @@ void LocalTracker::initNewLocalMap(const dvo::core::RgbdImagePyramid::Ptr& keyfr
     TrackingResult r_odometry;
     r_odometry.Transformation.setIdentity();
 
-    //impl_->odometry_tracker_->match(*(impl_->keyframe_points_), *frame, r_odometry);
-    Iaicp iaicp;
-    iaicp.match(*(impl_->keyframe_points_), *frame, r_odometry);
+//#ifdef USE_IAICP
+//    Iaicp iaicp;
+//    iaicp.match(*(impl_->keyframe_points_), *frame, r_odometry);
+//#else
+    impl_->odometry_tracker_->match(*(impl_->keyframe_points_), *frame, r_odometry);
+//#endif
 
     impl_->last_keyframe_pose_ = r_odometry.Transformation;
 
@@ -173,6 +179,7 @@ void LocalTracker::initNewLocalMap(const dvo::core::RgbdImagePyramid::Ptr& keyfr
 
 int g_frameCounter = 0;
 int g_keyframe_counter = 0;
+dvo::core::AffineTransformd for_predict = dvo::core::AffineTransformd::Identity();
 
 void LocalTracker::update(const dvo::core::RgbdImagePyramid::Ptr& image, dvo::core::AffineTransformd& pose)
 {
@@ -212,26 +219,57 @@ void LocalTracker::update(const dvo::core::RgbdImagePyramid::Ptr& image, dvo::co
 
 
     // TODO: fix me!
-    if(false)
-    {
-        boost::function<void()> h1 = boost::bind(&internal::LocalTrackerImpl::match, impl_->keyframe_tracker_, impl_->keyframe_points_, image, &r_keyframe);
-        boost::function<void()> h2 = boost::bind(&internal::LocalTrackerImpl::match, impl_->odometry_tracker_, impl_->active_frame_points_, image,  &r_odometry);
-
-        sw_match.start();
-        tbb::parallel_invoke(h1, h2);
-        sw_match.stopAndPrint();
-    }
-    else
+#ifdef USE_IAICP
     {
         bool drawImg = false;
-        Iaicp iaicp1, iaicp2;
+        ros::param::get("/benchmark/iaicp_drawImage", drawImg);
+
+        int iaicp1_interatePerLevel = 15;
+        int iaicp1_numOfFeaturePairs = 100;
+        int iaicp1_searchRangePixel = 12;
+        int iaicp2_interatePerLevel = 15;
+        int iaicp2_numOfFeaturePairs = 100;
+        int iaicp2_searchRangePixel = 12;
+        ros::param::get("/benchmark/iaicp1_interatePerLevel", iaicp1_interatePerLevel);
+        ros::param::get("/benchmark/iaicp1_numOfFeaturePairs", iaicp1_numOfFeaturePairs);
+        ros::param::get("/benchmark/iaicp1_searchRangePixel", iaicp1_searchRangePixel);
+        ros::param::get("/benchmark/iaicp2_interatePerLevel", iaicp2_interatePerLevel);
+        ros::param::get("/benchmark/iaicp2_numOfFeaturePairs", iaicp2_numOfFeaturePairs);
+        ros::param::get("/benchmark/iaicp2_searchRangePixel", iaicp2_searchRangePixel);
+
+        iaicp1.setInteratePerLevel(iaicp1_interatePerLevel);
+        iaicp1.setNumOfFeaturePairs(iaicp1_numOfFeaturePairs);
+        iaicp1.setSearchRangePixel(iaicp1_searchRangePixel);
+
+        iaicp2.setInteratePerLevel(iaicp2_interatePerLevel);
+        iaicp2.setNumOfFeaturePairs(iaicp2_numOfFeaturePairs);
+        iaicp2.setSearchRangePixel(iaicp2_searchRangePixel);
+
         iaicp1.setSaveImage(drawImg);
         iaicp2.setSaveImage(drawImg);
 
-        iaicp1.setupPredict(r_keyframe.Transformation.inverse(Eigen::Isometry));
+        //iaicp1.setupPredict(r_keyframe.Transformation.inverse(Eigen::Isometry));
 
-        iaicp1.match(*(impl_->keyframe_points_),*image,*(&r_keyframe));
+        TrackingResult t1, t2;
+        {
+            t1.Transformation = impl_->last_keyframe_pose_.inverse(Eigen::Isometry);
+            t2.Transformation.setIdentity();
+
+            boost::function<void()> h1 = boost::bind(&internal::LocalTrackerImpl::match, impl_->keyframe_tracker_, impl_->keyframe_points_, image, &t1);
+            boost::function<void()> h2 = boost::bind(&internal::LocalTrackerImpl::match, impl_->odometry_tracker_, impl_->active_frame_points_, image,  &t2);
+            tbb::parallel_invoke(h1, h2);
+
+            iaicp1.setupPredict(t1.Transformation);
+            iaicp2.setupPredict(t2.Transformation);
+        }
+
+        //iaicp1.setupPredict(for_predict);
+
+        //iaicp2.match(*(impl_->active_frame_points_),*image,*(&testResult));
+        iaicp1.match(*(impl_->keyframe_points_),*image, *(&r_keyframe));
         iaicp2.match(*(impl_->active_frame_points_),*image,*(&r_odometry));
+
+        std::cout << "llh dvo: " << t1.LogLikelihood << " llh iaicp: " << r_keyframe.LogLikelihood << std::endl;
 
         if(drawImg)
         {
@@ -250,30 +288,45 @@ void LocalTracker::update(const dvo::core::RgbdImagePyramid::Ptr& image, dvo::co
         }
 
     }
+#else
+    {
+        boost::function<void()> h1 = boost::bind(&internal::LocalTrackerImpl::match, impl_->keyframe_tracker_, impl_->keyframe_points_, image, &r_keyframe);
+        boost::function<void()> h2 = boost::bind(&internal::LocalTrackerImpl::match, impl_->odometry_tracker_, impl_->active_frame_points_, image,  &r_odometry);
 
-    //  ROS_INFO("ICP result trans: %f %f %f", result.translation()(0), result.translation()(1), result.translation()(2));
-    //  ROS_INFO("DVO result trans: %f %f %f", r_keyframe.Transformation.translation()(0),
-    //           r_keyframe.Transformation.translation()(1),
-    //           r_keyframe.Transformation.translation()(2));
+        sw_match.start();
+        tbb::parallel_invoke(h1, h2);
+        sw_match.stopAndPrint();
+    }
+#endif
 
-    //  ROS_INFO("ICP result rot: %f %f %f %f", result.rotation()(0), result.rotation()(1), result.rotation()(2), result.rotation()(3));
-    //  ROS_INFO("DVO result rot: %f %f %f %f", r_keyframe.Transformation.rotation()(0),
-    //           r_keyframe.Transformation.rotation()(1),
-    //           r_keyframe.Transformation.rotation()(2),
-    //           r_keyframe.Transformation.rotation()(3));
+//      ROS_INFO("ICP result trans: %f %f %f", testResult.Transformation.translation()(0),
+//               testResult.Transformation.translation()(1), testResult.Transformation.translation()(2));
+//      ROS_INFO("DVO result trans: %f %f %f", r_odometry.Transformation.translation()(0),
+//               r_odometry.Transformation.translation()(1),
+//               r_odometry.Transformation.translation()(2));
+
+//      ROS_INFO("ICP result rot: %f %f %f %f", testResult.Transformation.rotation()(0),
+//               testResult.Transformation.rotation()(1), testResult.Transformation.rotation()(2),
+//               testResult.Transformation.rotation()(3));
+//      ROS_INFO("DVO result rot: %f %f %f %f", r_odometry.Transformation.rotation()(0),
+//               r_odometry.Transformation.rotation()(1),
+//               r_odometry.Transformation.rotation()(2),
+//               r_odometry.Transformation.rotation()(3));
 
     ROS_WARN_COND(r_odometry.isNaN(), "NAN in Odometry");
     ROS_WARN_COND(r_keyframe.isNaN(), "NAN in Keyframe");
 
     impl_->force_ = impl_->force_ || r_odometry.isNaN() || r_keyframe.isNaN();
 
-    if(impl_->accept_(*this, r_odometry, r_keyframe) && !impl_->force_)
+
+    if(impl_->accept_(*this, r_odometry, r_keyframe) && !impl_->force_)//g_frameCounter%1  && g_frameCounter%7
     {
         local_map_->addFrame(image);
         local_map_->addOdometryMeasurement(r_odometry.Transformation, r_odometry.Information);
         local_map_->addKeyframeMeasurement(r_keyframe.Transformation, r_keyframe.Information);
 
         impl_->last_keyframe_pose_ = r_keyframe.Transformation;
+        for_predict = r_keyframe.Transformation;
     }
     else
     {
@@ -290,6 +343,7 @@ void LocalTracker::update(const dvo::core::RgbdImagePyramid::Ptr& image, dvo::co
         initNewLocalMap(old_map->getCurrentFrame(), image, r_odometry, old_pose);
 
         impl_->last_keyframe_pose_ = r_odometry.Transformation;
+        for_predict.setIdentity();
     }
 
     local_map_->getCurrentFramePose(pose);

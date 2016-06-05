@@ -486,11 +486,11 @@ void BenchmarkNode::run()
       dvo_benchmark::toPoseEigen(groundtruth_reader_->entry(), groundtruth_pose);
 
       visualizer->trajectory("groundtruth")->
-          color(dvo::visualization::Color::blue()).
+          color(dvo::visualization::Color(255,255,0)).
           add(groundtruth_pose);
 
       visualizer->camera("groundtruth")->
-          color(dvo::visualization::Color::blue()).
+          color(dvo::visualization::Color(255,255,0)).
           update(current->level(0), groundtruth_pose).
           show(cfg_.ShowEstimate ? dvo::visualization::CameraVisualizer::ShowCamera : dvo::visualization::CameraVisualizer::ShowCameraAndCloud);
     }

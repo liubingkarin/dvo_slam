@@ -38,7 +38,17 @@
     <param type="string" name="video_folder" value="$(arg video_folder)" />
     
     <param type="string" name="camera_file" value="$(arg camera_file)" />
-    
+
+    <param type="int" name="iaicp1_interatePerLevel" value="10" />
+    <param type="int" name="iaicp1_numOfFeaturePairs" value="100" />
+    <param type="int" name="iaicp1_searchRangePixel" value="3" />
+ 
+    <param type="int" name="iaicp2_interatePerLevel" value="10" />
+    <param type="int" name="iaicp2_numOfFeaturePairs" value="100" />
+    <param type="int" name="iaicp2_searchRangePixel" value="3" />
+
+    <param type="bool" name="iaicp_drawImage" value="false" />
+
     <rosparam command="load" file="$(arg config_file)" />
     <rosparam command="load" file="$(arg slam_config_file)" />
   </node>

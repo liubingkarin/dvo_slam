@@ -37,9 +37,11 @@ typedef boost::shared_ptr<KeyframeConstraintSearchInterface> KeyframeConstraintS
 class NearestNeighborConstraintSearch : public KeyframeConstraintSearchInterface
 {
 public:
-  NearestNeighborConstraintSearch(float max_distance) :
-    max_distance_(max_distance)
+  NearestNeighborConstraintSearch(float max_distance, bool enableLoopClosure = true) :
+    max_distance_(max_distance),
+    enable_loopClosure(enableLoopClosure)
   {};
+
   virtual ~NearestNeighborConstraintSearch() {};
 
   float maxDistance() const;
@@ -49,6 +51,7 @@ public:
   virtual void findPossibleConstraints(const KeyframeVector& all, const KeyframePtr& keyframe, KeyframeVector& candidates);
 private:
   float max_distance_;
+  bool enable_loopClosure;
 };
 
 } /* namespace dvo_slam */

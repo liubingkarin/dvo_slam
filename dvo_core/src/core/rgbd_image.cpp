@@ -141,6 +141,8 @@ static void pyrDownSubsample(const cv::Mat& in, cv::Mat& out)
 RgbdImagePyramid::RgbdImagePyramid(RgbdCameraPyramid& camera, const cv::Mat& intensity, const cv::Mat& depth) :
     camera_(camera)
 {
+   ori_depth = depth;
+   ori_rgb = intensity;
   levels_.push_back(camera_.level(0).create(intensity, depth));
 }
 

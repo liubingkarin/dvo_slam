@@ -155,7 +155,7 @@ public:
   void configure(const dvo_slam::KeyframeGraphConfig& cfg)
   {
     cfg_ = cfg;
-    constraint_search_.reset(new NearestNeighborConstraintSearch(cfg_.NewConstraintSearchRadius));
+    constraint_search_.reset(new NearestNeighborConstraintSearch(cfg_.NewConstraintSearchRadius, cfg_.enable_loopClosure));
   }
 
   void add(const LocalMap::Ptr& keyframe)
@@ -469,7 +469,7 @@ private:
     size_t max_distance = static_cast<size_t>(insertNewKeyframeConstraints(constraints));
     sw_insert.stopAndPrint();
 
-    if(max_distance >= cfg_.MinConstraintDistance)
+    if(max_distance >= cfg_.MinConstraintDistance && cfg_.enable_loopClosure)
     {
       sw_opt.start();
       // optimize
@@ -506,7 +506,9 @@ private:
         .keepAll()
         .addVoter(new OdometryConstraintVoter())
         .addVoter(new NaNResultVoter())
-        //.addVoter(new ConstraintRatioVoter(cfg_.MinEquationSystemConstraintRatio))
+        #ifndef USE_IAICP
+        .addVoter(new ConstraintRatioVoter(cfg_.MinEquationSystemConstraintRatio))
+        #endif
         .addVoter(new TrackingResultEvaluationVoter(cfg_.NewConstraintMinEntropyRatioCoarse))
         .addVoter(new CrossValidationVoter(1.0))
    ;
@@ -515,7 +517,9 @@ private:
         .trackingConfig(constraint_tracker_cfg_)
         .keepBest()
         .addVoter(new NaNResultVoter())
-        //.addVoter(new ConstraintRatioVoter(cfg_.MinEquationSystemConstraintRatio))
+        #ifndef USE_IAICP
+        .addVoter(new ConstraintRatioVoter(cfg_.MinEquationSystemConstraintRatio))
+        #endif
         .addVoter(new TrackingResultEvaluationVoter(cfg_.NewConstraintMinEntropyRatioFine));
 
     return r;

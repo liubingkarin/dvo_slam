@@ -48,7 +48,8 @@ KeyframeGraphConfig::KeyframeGraphConfig() :
     FinalOptimizationUseDenseGraph(true),
     FinalOptimizationIterations(5000),
     FinalOptimizationRemoveOutliers(false),
-    FinalOptimizationOutlierWeightThreshold(0.0)
+    FinalOptimizationOutlierWeightThreshold(0.0),
+    enable_loopClosure(true)
 {
 }
 
@@ -75,6 +76,7 @@ void updateConfigFromDynamicReconfigure(const KeyframeSlamConfig& cfg, KeyframeT
   backend_cfg.UseRobustKernel = cfg.graph_opt_robust;
   backend_cfg.MinEquationSystemConstraintRatio = cfg.constraint_min_eq_sys_constraint_ratio;
   backend_cfg.UseMultiThreading = cfg.use_multithreading;
+  backend_cfg.enable_loopClosure = cfg.enable_loopclosure;
 }
 } /* namespace dvo_slam */
 

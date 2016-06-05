@@ -132,7 +132,6 @@ bool DenseTracker::match(dvo::core::RgbdImagePyramid& reference, dvo::core::Rgbd
 
 bool DenseTracker::match(dvo::core::PointSelection& reference, dvo::core::RgbdImagePyramid& current, dvo::DenseTracker::Result& result)
 {
-  clock_t startClock = clock();
 
   current.compute(cfg.getNumLevels());
 
@@ -346,7 +345,6 @@ bool DenseTracker::match(dvo::core::PointSelection& reference, dvo::core::RgbdIm
       Vector6 Jz;
       ls.initialize(1);
       //ROS_INFO("for(PointIterator e_it ...");
-      //clock_t loop_startClock = clock();
       for(PointIterator e_it = compute_residuals_result.first_point_error; e_it != compute_residuals_result.last_point_error; ++e_it, ++w_it)
       {
         loop_counter++;

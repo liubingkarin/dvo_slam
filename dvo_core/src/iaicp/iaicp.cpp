@@ -1,6 +1,8 @@
 #include "iaicp/iaicp.h"
 #include <Eigen/Geometry>
 #include <fstream>
+#include <cmath>
+
 using namespace pcl;
 using namespace pcl::registration;
 using namespace Eigen;
@@ -15,12 +17,22 @@ Iaicp::Iaicp()
     //ros::param::get("/cy", cy);
     //ros::param::get("/height", height);
     //ros::param::get("/width", width);
-    fx = 517.3;
+    fx = 517.5;
     fy = 516.5;
     cx = 318.6;
     cy = 255.3;
-    m_trans=Affine3f::Identity();
-    m_predict=Affine3f::Identity();
+//    fx = 525.0 ;// # focal length x
+//    fy = 525.0  ;//# focal length y
+//    cx = 319.5  ;//# optical center x
+//    cy = 239.5  ;//# optical center y
+    m_trans = Affine3f::Identity();
+    m_predict = Affine3f::Identity();
+    width = 640;
+    height = 480;
+
+    interatePerLevel = 15;
+    numOfFeaturePairs = 100;
+    searchRangePixel = 12;
 }
 
 Iaicp::~Iaicp(){}
@@ -29,27 +41,26 @@ CloudPtr Iaicp::Mat2Cloud(Mat &imR, Mat &imD)
 {
     CloudPtr cloud;
     cloud.reset(new Cloud);
-    //
-    width = imR.size[1];
-    height = imR.size[0];
+
     cloud->points.resize(width*height);
 
-    for(size_t i=0; i<width; i++){
-        for(size_t j=0; j<height; j++){
+    for(int c=0; c<width; c++){
+        for(int r=0; r<height; r++){
             PointT pt;
-            if (! (imD.at<float>(j,i)==imD.at<float>(j,i)) ) {
-                pt.z= 0.f/0.f;
-                cloud->points.at(j*width+i) = pt;
+            if ( isnan(imD.at<float>(r,c)) ) {
+                pt.z= nan("");
+                cloud->points.at(r*width+c) = pt;
                 continue;
             }
-            pt.z = imD.at<float>(j,i);
-            pt.x = (float(i) - cx) * pt.z / fx;
-            pt.y = (float(j) - cy) * pt.z / fy;
-            Vec3b color = imR.at<Vec3b>(j,i);
+            pt.z = imD.at<float>(r,c);
+            pt.x = (float(c) - cx) * pt.z / fx;
+            pt.y = (float(r) - cy) * pt.z / fy;
+
+            Vec3b color = imR.at<Vec3b>(r,c);
             pt.r = (int)color.val[0];
             pt.g = (int)color.val[1];
             pt.b = (int)color.val[2];
-            cloud->points.at(j*width+i) = pt;
+            cloud->points.at(r*width+c) = pt;
         }
     }
     return cloud;
@@ -57,32 +68,27 @@ CloudPtr Iaicp::Mat2Cloud(Mat &imR, Mat &imD)
 void Iaicp::setupSource(CloudPtr &source)
 {
     m_src.reset(new Cloud);
-    m_src=source;
+    m_src = source;
     intMedian=0.f;  intMad=45.f;
 }
 
 void Iaicp::setupTarget(CloudPtr &target)
 {
     m_tgt.reset(new Cloud);
-    m_tgt=target;
+    m_tgt = target;
     geoMedian =0.f; geoMad=0.02f;
 }
+
 void Iaicp::setupPredict(Affine3f pred)
 {
-    //m_predict = pred;
+    m_predict = pred;
     m_trans = pred;
-
 }
 
 void Iaicp::setupPredict(Affine3d pred)
 {
-    for(int r = 0; r < 4; r++)
-    {
-        for(int c = 0; c < 4; c++)
-        {
-            m_trans(r,c) = pred(r,c);
-        }
-    }
+    m_predict = pred.cast<float>();
+    m_trans = pred.cast<float>();
 }
 
 
@@ -91,18 +97,21 @@ void Iaicp::sampleSource()
     //cout<<m_src->points.size()<<"  "<<m_tgt->points.size()<<endl;
     m_salientSrc.reset(new Cloud());
     int cnt=0;
-    int begin = 2+rand()%2;
+    int begin_r = 2 + rand()%2;
+    int begin_c = 2 + rand()%2;
     //cout<<width<<"  "<<height<<endl;
-    for(size_t i=begin; i<width-begin-4; i+=4){
-        for(size_t j=begin; j<height-begin-4; j+=4){
-            PointT pt=m_src->points[j*width+i];
+    for(size_t i= begin_c; i<width-begin_c-4; i+=4){
+        for(size_t j=begin_r; j<height-begin_r-4; j+=4){
+            PointT pt = m_src->points[j*width+i];
             if (pt.z!=pt.z || pt.z>8.f) {continue;}  //continue if no depth value available
 
             //warp to target image
             PointT ptwarp=pt;
-            ptwarp= pcl::transformPoint(ptwarp, m_predict);
-            int xpos = int(floor(fx/ptwarp.z * ptwarp.x + cx));
-            int ypos = int(floor(fy/ptwarp.z * ptwarp.y + cy));
+            ptwarp = pcl::transformPoint(ptwarp, m_predict);
+            if(isnan(ptwarp.x) || isnan(ptwarp.y) || isnan(ptwarp.z)){continue;}
+
+            int xpos = round(fx/ptwarp.z * ptwarp.x + cx);
+            int ypos = round(fy/ptwarp.z * ptwarp.y + cy);
             if (xpos>=width-3 || ypos>=height-3 || xpos<3 || ypos<3) {continue;} //continue if out of image border
 
 
@@ -153,6 +162,7 @@ void Iaicp::sampleSource()
             //            }
         }
     }
+
     if(cnt<200){
         for(size_t i=0; i<1000; i++){
             m_salientSrc->points.push_back(m_src->points[rand()%m_src->points.size()]);
@@ -162,58 +172,93 @@ void Iaicp::sampleSource()
     pcl::removeNaNFromPointCloud(*m_salientSrc, *m_salientSrc, indices);
     //cout<<"sampled "<< cnt<<" salient points"<<endl;
 }
+int Iaicp::getSearchRangePixel() const
+{
+    return searchRangePixel;
+}
+
+void Iaicp::setSearchRangePixel(int value)
+{
+    searchRangePixel = value;
+}
+
+int Iaicp::getNumOfFeaturePairs() const
+{
+    return numOfFeaturePairs;
+}
+
+void Iaicp::setNumOfFeaturePairs(int value)
+{
+    numOfFeaturePairs = value;
+}
+
+int Iaicp::getInteratePerLevel() const
+{
+    return interatePerLevel;
+}
+
+void Iaicp::setInteratePerLevel(int value)
+{
+    interatePerLevel = value;
+}
+
 
 void Iaicp::run()
 {
     sampleSource();
-    int iterPerLevel = 5;
+    int iterPerLevel = interatePerLevel;
+    
     int offset=6, maxDist=0.12f;
     iterateLevel(maxDist, offset, iterPerLevel);
     offset=3; maxDist=0.06f;
     iterateLevel(maxDist, offset, iterPerLevel);
     offset=1; maxDist=0.02f;
-    iterateLevel(maxDist, offset,iterPerLevel);
+    iterateLevel(maxDist, offset, iterPerLevel);
 }
 
 void Iaicp::iterateLevel(float maxDist, int offset, int maxiter) //performs one iteration of the IaICP method
 {
-    for (size_t iteration=0; iteration<maxiter; iteration++){
+    for (size_t iteration=0; iteration < maxiter; iteration++){
         tgt_.reset(new Cloud());
         src_.reset(new Cloud());
         std::vector<float> geoResiduals;
         std::vector<float> intResiduals;
 
         int counter=0;   //counter for how many number of correspondences have been already used
-        for(size_t i=0; i<m_salientSrc->points.size(); i++){
-            if (counter>=50) break;    //only use  limited number of pairs of correspondences.
+        for(size_t i = 0; i < m_salientSrc->points.size(); i++){
+            if (counter >= numOfFeaturePairs) break;    //only use  limited number of pairs of correspondences.
             int thisIndex =  rand()%m_salientSrc->points.size();  //randomly select one salient point
             PointT temp = m_salientSrc->points[thisIndex];   //selected source ponint
-            PointT pt=transformPoint(temp, m_trans);   //warped source point
+            PointT pt = transformPoint(temp, m_trans);   //warped source point
             PointT tgtpt;                              //for the selected correponding point from the target cloud.
-            int xpos = int(floor(fx/pt.z * pt.x + cx)); //warped image coordinate x
-            int ypos = int(floor(fy/pt.z * pt.y + cy)); //warped image coordinate y
+            int xpos = int(round(fx/pt.z * pt.x + cx)); //warped image coordinate x
+            int ypos = int(round(fy/pt.z * pt.y + cy)); //warped image coordinate y
 
-            if (xpos>=(width) || ypos>=(height)|| xpos<0 || ypos<0) { continue;}
+            if ((xpos >= width) || (ypos >= height)|| xpos<0 || ypos<0) { continue;}
             float maxWeight = 1e-10;
-            int searchRange=3;
+            int searchRange = searchRangePixel;//3;
             float intResidual, geoResidual;
-            for(int xx=-searchRange; xx<searchRange+1; xx++){
-                for(int yy=-searchRange; yy<searchRange+1; yy++){
+
+            for(int xx = -searchRange; xx < searchRange+1; xx++){
+                for(int yy = -searchRange; yy < searchRange+1; yy++){
                     float gridDist = sqrt(pow(float(xx),2) + pow(float(yy),2));
                     if ( gridDist > (float)searchRange ){continue;}  //get a circle shaped search area
-                    int xpos_ = xpos+xx*(float)offset;  //searched target point's image coordinate
-                    int ypos_ = ypos+yy*(float)offset;
+
+                    int xpos_ = xpos + xx*offset;  //searched target point's image coordinate
+                    int ypos_ = ypos + yy*offset;// + floor(rand()%offset - 0.5*offset)
+
                     if (xpos_>=(width-2) || ypos_>=(height-2) || xpos_<2 || ypos_<2) { continue;}
+
                     PointT pt2 = m_tgt->points[ypos_*width+xpos_];
-                    float dist = (pt.getVector3fMap()-pt2.getVector3fMap()).norm();  //geo. distance
+                    float dist = (pt.getVector3fMap() - pt2.getVector3fMap()).norm();  //geo. distance
                     if(dist==dist){           //check for NAN
                         //                        if (dist>maxDist) {continue;}
                         float residual = getresidual(pt2, pt);
-                        if(residual==residual){  //check for NAN
+                        if(residual == residual){  //check for NAN
                             float geoWeight = 1e2f*(6.f/(5.f+ pow((dist)/(geoMad), 2)));
                             float colWeight = 1e2f*(6.f/(5.f+ pow((residual-intMedian)/intMad, 2)));
                             float thisweight = geoWeight * colWeight;
-                            if(thisweight==thisweight && thisweight>maxWeight){
+                            if(thisweight == thisweight && thisweight>maxWeight){
                                 tgtpt=pt2;
                                 maxWeight=thisweight;
                                 intResidual= residual; geoResidual = dist;
@@ -245,7 +290,7 @@ void Iaicp::iterateLevel(float maxDist, int offset, int maxiter) //performs one 
             temp[i] = fabs(temp[i]-geoMedian);
         }
         sort(temp.begin(), temp.end());
-        geoMad = 1.f*1.4826 * temp[temp.size()/2]+1e-11;
+        geoMad = 1.f*1.4826 * temp[temp.size()/2] + 1e-11;
         for(size_t i=0; i<geoResiduals.size(); i++){
             geoResiduals[i] =  (6.f/(5.f+ pow((geoResiduals[i])/geoMad, 2)));
         }
@@ -257,7 +302,7 @@ void Iaicp::iterateLevel(float maxDist, int offset, int maxiter) //performs one 
             temp[i] = fabs(temp[i]-intMedian);
         }
         sort(temp.begin(), temp.end());
-        intMad = 1.f*1.4826 * temp[temp.size()/2]+1e-11;
+        intMad = 1.f*1.4826 * temp[temp.size()/2] + 1e-11;
         for(size_t i=0; i<intResiduals.size(); i++){
             intResiduals[i] = (6.f/(5.f+ pow((intResiduals[i]-intMedian)/intMad, 2)));
         }
@@ -308,17 +353,17 @@ Mat Iaicp::cloudToImage(const CloudPtr &cloud, Affine3f transform)
     {
         proj_depth[i] = 1e10;
     }
-    for(size_t c = 0; c < width; c++)
+    for(int c = 0; c < width; c++)
     {
-        for(size_t r = 0; r < height; r++)
+        for(int r = 0; r < height; r++)
         {
             PointT point = cloud->points[r*width+c];
 
             //warp
             point = transformPoint(point, transform);
 
-            int c_t = floor(point.x*fx/point.z + cx);//!!!point.z could be nan
-            int r_t = floor(point.y*fy/point.z + cy);
+            int c_t = round(point.x*fx/point.z + cx);//!!!point.z could be nan
+            int r_t = round(point.y*fy/point.z + cy);
 
             if (c_t >=0 && c_t < width && r_t >=0 && r_t < height)
             {
@@ -366,8 +411,8 @@ void Iaicp::writeResidualImgToFile(Affine3f transform, string fileName) const
             //warp
             point = transformPoint(point, transform);
 
-            int c_t = floor(point.x*fx/point.z + cx);
-            int r_t = floor(point.y*fy/point.z + cy);
+            int c_t = round(point.x*fx/point.z + cx);
+            int r_t = round(point.y*fy/point.z + cy);
 
             if (c_t >=0 && c_t < width && r_t >=0 && r_t < height)
             {
@@ -410,9 +455,10 @@ void Iaicp::llhAndInfomatrix(Affine3f transform, double &llh, dvo::core::Matrix6
 
             //warp
             point = transformPoint(point, transform);
+            if(isnan(point.z)){continue;}
 
-            int c_t = floor(point.x*fx/point.z + cx);
-            int r_t = floor(point.y*fy/point.z + cy);
+            int c_t = round(point.x*fx/point.z + cx);
+            int r_t = round(point.y*fy/point.z + cy);
 
             if (c_t >=0 && c_t < width && r_t >=0 && r_t < height)
             {
@@ -436,9 +482,8 @@ void Iaicp::llhAndInfomatrix(Affine3f transform, double &llh, dvo::core::Matrix6
         PointT p = m_tgt->points[i];
         if(proj_depth[i] < 1e5 &&  p.z == p.z)
         {
-
-            errorSum += abs(proj_depth[i]-p.z);
-            negErrSum += std::max((0.005 - abs(proj_depth[i]-p.z)), -0.001);
+            errorSum += abs(proj_depth[i] - p.z);
+            negErrSum += std::max((0.02 - abs(proj_depth[i]-p.z)), 0.001);
             if(abs(proj_depth[i]-p.z) < 0.005){
                 goodSum += 1.0;
             }
@@ -472,6 +517,7 @@ void Iaicp::llhAndInfomatrix(Affine3f transform, double &llh, dvo::core::Matrix6
         }
     }
     double variance = varianceSum / count;
+    variance = 0.008;
 
     Information = dvo::core::Matrix6d::Identity() * variance * variance;
     //cout << "variance  " << variance;
@@ -480,7 +526,7 @@ void Iaicp::llhAndInfomatrix(Affine3f transform, double &llh, dvo::core::Matrix6
 
 bool Iaicp::match(dvo::core::PointSelection &ref, dvo::core::RgbdImagePyramid &cur, dvo::DenseTracker::Result &result)
 {
-    match(ref.getRgbdImagePyramid(),cur,result);
+    match(ref.getRgbdImagePyramid(), cur, result);
 }
 
 bool Iaicp::match(dvo::core::RgbdImagePyramid &ref, dvo::core::RgbdImagePyramid &cur, dvo::DenseTracker::Result &result)
@@ -489,51 +535,54 @@ bool Iaicp::match(dvo::core::RgbdImagePyramid &ref, dvo::core::RgbdImagePyramid 
     Eigen::Affine3f result_key;
     CloudPtr tmp_s, tmp_t;
     double time_core_start = pcl::getTime();
-    tmp_s = Mat2Cloud(cur.level(0).rgb, cur.level(0).depth);
 
-    tmp_t = Mat2Cloud(ref.level(0).rgb,
-                      ref.level(0).depth);
+    tmp_s = Mat2Cloud(cur.ori_rgb, cur.ori_depth);
+
+    tmp_t = Mat2Cloud(ref.ori_rgb,
+                      ref.ori_depth);
 
 
     setupSource(tmp_s);
     setupTarget(tmp_t);
+
     run();
-    result_key = getTransResult();
-    cout<<"iaicp core time "<<pcl::getTime()-time_core_start;
+
+    result_key = toEigen(toVector(getTransResult()));
+
+    //cout<<"iaicp core time "<<pcl::getTime()-time_core_start;
 
     dvo::core::Matrix6d information;
     double loglikelihood;
 
     double time_llh_start = pcl::getTime();
-    //llhAndInfomatrix(result_key,loglikelihood,information);
-    cout<<" llh time "<<pcl::getTime()-time_llh_start;
-    loglikelihood = 1;
-    information = dvo::core::Matrix6d::Identity();
-    for(int r = 0; r < 4; r++)
-    {
-        for(int c = 0; c < 4; c++)
-        {
-            result.Transformation(r,c) = result_key(r,c);
-        }
-    }
+    llhAndInfomatrix(result_key, loglikelihood, information);
+
+    //loglikelihood = -1;
+    //information = dvo::core::Matrix6d::Identity()*0.00001;
+
+    result.Transformation = result_key.cast<double>();
+
     result.Information = information;
     result.LogLikelihood = loglikelihood;
 
+    //cout<<" llh time "<<pcl::getTime()-time_llh_start;
 
     if(saveImage_)
     {
-        mat_source_= cloudToImage(tmp_s);
-        mat_source_.convertTo(mat_source_, CV_8UC3, 255.0);
+        //mat_source_ = cloudToImage(tmp_s);
+        mat_source_ = cloudToImage(Mat2Cloud(cur.ori_rgb, cur.ori_depth));
+        mat_source_.convertTo(mat_source_, CV_8UC3, 1);
 
         mat_target_ = cloudToImage(tmp_t);
-        mat_target_.convertTo(mat_target_, CV_8UC3, 255.0);
+        //mat_target_ = ref.ori_rgb;
+        mat_target_.convertTo(mat_target_, CV_8UC3, 1);
 
         mat_trans_ = cloudToImage(tmp_s, result_key);
-        mat_trans_.convertTo(mat_trans_, CV_8UC3, 255.0);
+        mat_trans_.convertTo(mat_trans_, CV_8UC3, 1);
 
-        cv::absdiff(mat_trans_ , mat_target_, mat_residual_);
+        cv::absdiff(mat_target_ , mat_trans_, mat_residual_);
     }
-    cout<<", iaicp total time "<<pcl::getTime()-time_start<<endl;
+    //cout<<", iaicp total time "<<pcl::getTime()-time_start<<endl;
 }
 
 void Iaicp::setSaveImage(bool saveImage)

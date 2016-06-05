@@ -67,7 +67,9 @@ public:
     lt_.addAcceptCallback(boost::bind(&KeyframeTracker::Impl::onAcceptCriterionEstimateDivergence, this, _1, _2, _3));
     //lt_.addAcceptCallback(boost::bind(&KeyframeTracker::Impl::onAcceptCriterionEntropyRatio, this, _1, _2, _3));
     lt_.addAcceptCallback(boost::bind(&KeyframeTracker::Impl::onAcceptCriterionDistance, this, _1, _2, _3));
-    //lt_.addAcceptCallback(boost::bind(&KeyframeTracker::Impl::onAcceptCriterionConstraintRatio, this, _1, _2, _3));
+#ifndef USE_IAICP
+    lt_.addAcceptCallback(boost::bind(&KeyframeTracker::Impl::onAcceptCriterionConstraintRatio, this, _1, _2, _3));
+#endif
     lt_.addAcceptCallback(boost::bind(&KeyframeTracker::Impl::onAcceptCriterionConditionNumber, this, _1, _2, _3));
 
     ll_keyframe_pub_ = nh_.advertise<std_msgs::Float64>("/ll/keyframe", 1);
@@ -110,7 +112,7 @@ public:
     m3.data = evaluation->ratioWithFirst(r_keyframe);
 
     bool accept = m3.data > cfg_.MinEntropyRatio;
-    ROS_INFO("m1.data %f, m3.data  %f, cfg_.MinEntropyRatio %f, accept %d", m1.data, m3.data, cfg_.MinEntropyRatio, accept);
+    //ROS_INFO("m1.data %f, m3.data  %f, cfg_.MinEntropyRatio %f, accept %d", m1.data, m3.data, cfg_.MinEntropyRatio, accept);
 
     if(accept)
       evaluation->add(r_keyframe);
@@ -158,7 +160,18 @@ public:
 
   bool onAcceptCriterionDistance(const LocalTracker& lt, const LocalTracker::TrackingResult& r_odometry, const LocalTracker::TrackingResult& r_keyframe)
   {
-    return r_keyframe.Transformation.translation().norm() < cfg_.MaxTranslationalDistance;
+      double temp[6];
+      pcl::getTranslationAndEulerAngles(r_keyframe.Transformation, temp[0],temp[1],temp[2],temp[3],temp[4],temp[5]);
+      for(size_t i=3; i<6; i++){
+             while (temp[i]>M_PI)  {temp[i] -= 2*M_PI;}
+             while (temp[i]<-M_PI) {temp[i] += 2*M_PI;}
+         }
+
+      double rot_dist = sqrt(pow(temp[3],2) + pow(temp[4],2) + pow(temp[5],2));
+      //std::cout << "rot_dist: "<< rot_dist << std::endl;
+      //return r_keyframe.Transformation.translation().norm() < cfg_.MaxTranslationalDistance;
+      return (sqrtf(pow(temp[0],2)+ pow(temp[1],2)+ pow(temp[2],2)) < cfg_.MaxTranslationalDistance &&
+               rot_dist < cfg_.MaxRotationalDistance);
   }
 
   bool onAcceptCriterionConstraintRatio(const LocalTracker& lt, const LocalTracker::TrackingResult& r_odometry, const LocalTracker::TrackingResult& r_keyframe)
@@ -276,7 +289,7 @@ void KeyframeTracker::configureKeyframeSelection(const dvo_slam::KeyframeTracker
 
 void KeyframeTracker::configureMapping(const dvo_slam::KeyframeGraphConfig& cfg)
 {
-  impl_->graph_.configure(cfg);
+    impl_->graph_.configure(cfg);
 }
 
 const dvo::DenseTracker::Config& KeyframeTracker::trackingConfiguration() const

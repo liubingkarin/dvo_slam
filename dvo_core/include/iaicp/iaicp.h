@@ -54,7 +54,9 @@ public:
     void setupPredict(Eigen::Affine3f pred); //set up prediction of transformation
     void setupPredict(Eigen::Affine3d pred); //set up prediction of transformation
     void run();  //performs the iterative registration
+
     Eigen::Affine3f getTransResult(){return m_trans;} //returns the estimated transformation result
+
     CloudPtr getSalientSource(){return m_salientSrc;}
 
     void checkAngles(Vector6f &vec);
@@ -70,6 +72,16 @@ public:
 
     void setSaveImage(bool saveImg = false);
     void getMat(cv::Mat &m_source, cv::Mat &m_target, cv::Mat &m_trans, cv::Mat &m_residual);
+
+    int getInteratePerLevel() const;
+    void setInteratePerLevel(int value);
+
+    int getNumOfFeaturePairs() const;
+    void setNumOfFeaturePairs(int value);
+
+    int getSearchRangePixel() const;
+    void setSearchRangePixel(int value);
+
 private:
     /*performs one level of iterations of the IaICP method
     maxDist: max. distance allowed between correspondences.
@@ -81,6 +93,7 @@ private:
     void sampleSource();    //sample salient points in the source frame
 
     float fx, fy, cx, cy; //camera parameters
+    float fx_rgb, fy_rgb, cx_rgb, cy_rgb; //camera parameters
     float intMedian, geoMedian, intMad, geoMad;
 
     int height, width; //the organzied cloud's height/width
@@ -94,6 +107,10 @@ private:
     cv::Mat mat_target_;
     cv::Mat mat_trans_;
     cv::Mat mat_residual_;
+
+    int interatePerLevel;
+    int numOfFeaturePairs;
+    int searchRangePixel;
 };
 
 

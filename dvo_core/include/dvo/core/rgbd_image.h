@@ -256,9 +256,12 @@ public:
   RgbdImage& level(size_t idx);
 
   double timestamp() const;
+  cv::Mat ori_rgb;
+  cv::Mat ori_depth;
 private:
   RgbdCameraPyramid& camera_;
   std::vector<RgbdImagePtr> levels_;
+
 };
 
 } /* namespace core */

@@ -29,6 +29,8 @@
 #include <boost/scoped_ptr.hpp>
 #include <boost/signals2.hpp>
 
+#include <iaicp/iaicp.h>
+
 namespace dvo_slam
 {
 
@@ -94,9 +96,12 @@ public:
   boost::signals2::connection addAcceptCallback(const AcceptCallback& callback);
   boost::signals2::connection addMapInitializedCallback(const MapInitializedCallback& callback);
   boost::signals2::connection addMapCompleteCallback(const MapCompleteCallback& callback);
+
 private:
   boost::scoped_ptr<internal::LocalTrackerImpl> impl_;
   dvo_slam::LocalMap::Ptr local_map_;
+
+  Iaicp iaicp1, iaicp2;
 
   void initNewLocalMap(const dvo::core::RgbdImagePyramid::Ptr& keyframe, const dvo::core::RgbdImagePyramid::Ptr& frame, TrackingResult& r_odometry, const dvo::core::AffineTransformd& keyframe_pose);
 

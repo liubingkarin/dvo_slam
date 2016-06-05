@@ -61,6 +61,8 @@ struct KeyframeGraphConfig
 
   size_t MinConstraintDistance;
 
+  bool enable_loopClosure;
+
   KeyframeGraphConfig();
 };
 
