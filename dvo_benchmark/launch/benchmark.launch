@@ -47,7 +47,7 @@
     <param type="int" name="iaicp2_numOfFeaturePairs" value="100" />
     <param type="int" name="iaicp2_searchRangePixel" value="3" />
 
-    <param type="bool" name="iaicp_drawImage" value="false" />
+    <param type="bool" name="iaicp_drawImage" value="true" />
 
     <rosparam command="load" file="$(arg config_file)" />
     <rosparam command="load" file="$(arg slam_config_file)" />

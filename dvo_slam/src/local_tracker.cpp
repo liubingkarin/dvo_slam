@@ -209,13 +209,7 @@ void LocalTracker::update(const dvo::core::RgbdImagePyramid::Ptr& image, dvo::co
        //TEST write warped image into file
     //iaicp.writeResidualImgToFile(result_key,"/home/liubing/Documents/images/"+boost::lexical_cast<std::string>(g_frameCounter)+".txt");
 
-    //TEST loglikelihood
-    //        double loglikelihood = iaicp.loglikelihood(result_key);
-    //        std::ofstream myfile;
-    //        myfile.open("/home/liubing/Documents/myLoglikelihood.txt",std::ios::app);
-    //        myfile<<loglikelihood<<std::endl;
-    //        myfile.close();
-    //END OF TEST loglikelihood
+
 
 
     // TODO: fix me!
@@ -255,21 +249,41 @@ void LocalTracker::update(const dvo::core::RgbdImagePyramid::Ptr& image, dvo::co
             t1.Transformation = impl_->last_keyframe_pose_.inverse(Eigen::Isometry);
             t2.Transformation.setIdentity();
 
-            boost::function<void()> h1 = boost::bind(&internal::LocalTrackerImpl::match, impl_->keyframe_tracker_, impl_->keyframe_points_, image, &t1);
-            boost::function<void()> h2 = boost::bind(&internal::LocalTrackerImpl::match, impl_->odometry_tracker_, impl_->active_frame_points_, image,  &t2);
+            boost::function<void()> h1 = boost::bind(&internal::LocalTrackerImpl::match, impl_->keyframe_tracker_, impl_->keyframe_points_, image, &r_keyframe);
+            boost::function<void()> h2 = boost::bind(&internal::LocalTrackerImpl::match, impl_->odometry_tracker_, impl_->active_frame_points_, image,  &r_odometry);
             tbb::parallel_invoke(h1, h2);
 
-            iaicp1.setupPredict(t1.Transformation);
-            iaicp2.setupPredict(t2.Transformation);
+            iaicp1.setupPredict(r_keyframe.Transformation);
+            iaicp2.setupPredict(r_odometry.Transformation);
+
+//            for(int r = 0; r < 6; r++)
+//            {
+//                for(int c = 0; c < 6; c++)
+//                {
+//                    std::cout << std::setprecision (3) << t1.Information(r,c) << " ";
+//                }
+//                std::cout << std::endl;
+//            }
         }
 
         //iaicp1.setupPredict(for_predict);
 
         //iaicp2.match(*(impl_->active_frame_points_),*image,*(&testResult));
-        iaicp1.match(*(impl_->keyframe_points_),*image, *(&r_keyframe));
-        iaicp2.match(*(impl_->active_frame_points_),*image,*(&r_odometry));
+        iaicp1.match(*(impl_->keyframe_points_),*image, *(&t1));
+        iaicp2.match(*(impl_->active_frame_points_),*image,*(&t2));
 
-        std::cout << "llh dvo: " << t1.LogLikelihood << " llh iaicp: " << r_keyframe.LogLikelihood << std::endl;
+        r_keyframe.Transformation = t1.Transformation;
+        r_odometry.Transformation = t2.Transformation;
+
+        std::cout << "llh iaicp: " << t1.LogLikelihood << " llh dvo: " << r_keyframe.LogLikelihood << std::endl;
+
+        //TEST loglikelihood
+        //        double loglikelihood = iaicp.loglikelihood(result_key);
+        //        std::ofstream myfile;
+        //        myfile.open("/home/liubing/Documents/myLoglikelihood.txt",std::ios::app);
+        //        myfile<<loglikelihood<<std::endl;
+        //        myfile.close();
+        //END OF TEST loglikelihood
 
         if(drawImg)
         {

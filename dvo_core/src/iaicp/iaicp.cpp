@@ -519,7 +519,7 @@ void Iaicp::llhAndInfomatrix(Affine3f transform, double &llh, dvo::core::Matrix6
     double variance = varianceSum / count;
     variance = 0.008;
 
-    Information = dvo::core::Matrix6d::Identity() * variance * variance;
+    Information = dvo::core::Matrix6d::Ones();
     //cout << "variance  " << variance;
 
 }

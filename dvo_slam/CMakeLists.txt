@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.8.3)
 
-#add_definitions(-DUSE_IAICP)
+add_definitions(-DUSE_IAICP)
 
 project(dvo_slam)
 

@@ -161,17 +161,20 @@ public:
   bool onAcceptCriterionDistance(const LocalTracker& lt, const LocalTracker::TrackingResult& r_odometry, const LocalTracker::TrackingResult& r_keyframe)
   {
       double temp[6];
-      pcl::getTranslationAndEulerAngles(r_keyframe.Transformation, temp[0],temp[1],temp[2],temp[3],temp[4],temp[5]);
-      for(size_t i=3; i<6; i++){
-             while (temp[i]>M_PI)  {temp[i] -= 2*M_PI;}
-             while (temp[i]<-M_PI) {temp[i] += 2*M_PI;}
-         }
+      pcl::getTranslationAndEulerAngles(r_keyframe.Transformation, temp[0], temp[1], temp[2], temp[3], temp[4], temp[5]);
+      for(size_t i=3; i<6; i++)
+      {
+          if(isnan(temp[i])){return false;}
+          while (temp[i] > M_PI)  {temp[i] -= 2*M_PI;}
+          while (temp[i] < -M_PI) {temp[i] += 2*M_PI;}
+      }
 
       double rot_dist = sqrt(pow(temp[3],2) + pow(temp[4],2) + pow(temp[5],2));
       //std::cout << "rot_dist: "<< rot_dist << std::endl;
       //return r_keyframe.Transformation.translation().norm() < cfg_.MaxTranslationalDistance;
-      return (sqrtf(pow(temp[0],2)+ pow(temp[1],2)+ pow(temp[2],2)) < cfg_.MaxTranslationalDistance &&
-               rot_dist < cfg_.MaxRotationalDistance);
+      return (sqrtf(pow(temp[0],2)+ pow(temp[1],2)+ pow(temp[2],2)) < cfg_.MaxTranslationalDistance
+              &&
+              rot_dist < cfg_.MaxRotationalDistance);
   }
 
   bool onAcceptCriterionConstraintRatio(const LocalTracker& lt, const LocalTracker::TrackingResult& r_odometry, const LocalTracker::TrackingResult& r_keyframe)

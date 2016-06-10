@@ -159,10 +159,12 @@ void ConstraintProposalValidator::validate(Stage& stage, ConstraintProposalVecto
     iaicp.setNumOfFeaturePairs(iaicp_numOfFeaturePairs);
     iaicp.setSearchRangePixel(iaicp_searchRangePixel);
 
-    iaicp.setupPredict(p->TrackingResult.Transformation.inverse(Eigen::Isometry));
-    //dvo::DenseTracker::Result t_result;
-    iaicp.match(*p->Reference->image(), *p->Current->image(), p->TrackingResult);
+    tracker_.match(*p->Reference->image(), *p->Current->image(), p->TrackingResult);
 
+    iaicp.setupPredict(p->TrackingResult.Transformation);
+    dvo::DenseTracker::Result t_result;
+    iaicp.match(*p->Reference->image(), *p->Current->image(), t_result);
+    p->TrackingResult.Transformation = t_result.Transformation;
 #else
     tracker_.match(*p->Reference->image(), *p->Current->image(), p->TrackingResult);
     //std::cout << "validate() iaicp llh: " << t_result.LogLikelihood << " dvo llh: " << p->TrackingResult.LogLikelihood << std::endl;
