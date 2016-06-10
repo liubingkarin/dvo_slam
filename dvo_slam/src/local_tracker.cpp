@@ -149,12 +149,12 @@ void LocalTracker::initNewLocalMap(const dvo::core::RgbdImagePyramid::Ptr& keyfr
     TrackingResult r_odometry;
     r_odometry.Transformation.setIdentity();
 
-//#ifdef USE_IAICP
-//    Iaicp iaicp;
-//    iaicp.match(*(impl_->keyframe_points_), *frame, r_odometry);
-//#else
+    //#ifdef USE_IAICP
+    //    Iaicp iaicp;
+    //    iaicp.match(*(impl_->keyframe_points_), *frame, r_odometry);
+    //#else
     impl_->odometry_tracker_->match(*(impl_->keyframe_points_), *frame, r_odometry);
-//#endif
+    //#endif
 
     impl_->last_keyframe_pose_ = r_odometry.Transformation;
 
@@ -206,7 +206,7 @@ void LocalTracker::update(const dvo::core::RgbdImagePyramid::Ptr& image, dvo::co
     impl_->active_frame_points_->setRgbdImagePyramid(*local_map_->getCurrentFrame());
 
 
-       //TEST write warped image into file
+    //TEST write warped image into file
     //iaicp.writeResidualImgToFile(result_key,"/home/liubing/Documents/images/"+boost::lexical_cast<std::string>(g_frameCounter)+".txt");
 
 
@@ -242,47 +242,29 @@ void LocalTracker::update(const dvo::core::RgbdImagePyramid::Ptr& image, dvo::co
         iaicp1.setSaveImage(drawImg);
         iaicp2.setSaveImage(drawImg);
 
-        //iaicp1.setupPredict(r_keyframe.Transformation.inverse(Eigen::Isometry));
 
-        TrackingResult t1, t2;
-        {
-            t1.Transformation = impl_->last_keyframe_pose_.inverse(Eigen::Isometry);
-            t2.Transformation.setIdentity();
+        r_keyframe.Transformation = impl_->last_keyframe_pose_.inverse(Eigen::Isometry);
+        r_odometry.Transformation.setIdentity();
 
-            boost::function<void()> h1 = boost::bind(&internal::LocalTrackerImpl::match, impl_->keyframe_tracker_, impl_->keyframe_points_, image, &r_keyframe);
-            boost::function<void()> h2 = boost::bind(&internal::LocalTrackerImpl::match, impl_->odometry_tracker_, impl_->active_frame_points_, image,  &r_odometry);
-            tbb::parallel_invoke(h1, h2);
+        boost::function<void()> h1 = boost::bind(&internal::LocalTrackerImpl::match, impl_->keyframe_tracker_, impl_->keyframe_points_, image, &r_keyframe);
+        boost::function<void()> h2 = boost::bind(&internal::LocalTrackerImpl::match, impl_->odometry_tracker_, impl_->active_frame_points_, image,  &r_odometry);
+        tbb::parallel_invoke(h1, h2);
 
-            iaicp1.setupPredict(r_keyframe.Transformation);
-            iaicp2.setupPredict(r_odometry.Transformation);
+        iaicp1.setupPredict(r_keyframe.Transformation);
+        iaicp2.setupPredict(r_odometry.Transformation);
 
-//            for(int r = 0; r < 6; r++)
-//            {
-//                for(int c = 0; c < 6; c++)
-//                {
-//                    std::cout << std::setprecision (3) << t1.Information(r,c) << " ";
-//                }
-//                std::cout << std::endl;
-//            }
-        }
 
-        //iaicp1.setupPredict(for_predict);
 
-        //iaicp2.match(*(impl_->active_frame_points_),*image,*(&testResult));
-        iaicp1.match(*(impl_->keyframe_points_),*image, *(&t1));
-        iaicp2.match(*(impl_->active_frame_points_),*image,*(&t2));
+        iaicp1.match(*(impl_->keyframe_points_),*image, *(&r_keyframe));
+        iaicp2.match(*(impl_->active_frame_points_),*image,*(&r_odometry));
 
-        r_keyframe.Transformation = t1.Transformation;
-        r_odometry.Transformation = t2.Transformation;
 
-        std::cout << "llh iaicp: " << t1.LogLikelihood << " llh dvo: " << r_keyframe.LogLikelihood << std::endl;
 
         //TEST loglikelihood
-        //        double loglikelihood = iaicp.loglikelihood(result_key);
-        //        std::ofstream myfile;
-        //        myfile.open("/home/liubing/Documents/myLoglikelihood.txt",std::ios::app);
-        //        myfile<<loglikelihood<<std::endl;
-        //        myfile.close();
+        std::ofstream myfile;
+        myfile.open("/home/liubing/Documents/myLoglikelihood.txt",std::ios::app);
+        myfile<<r_keyframe.LogLikelihood<<std::endl;
+        myfile.close();
         //END OF TEST loglikelihood
 
         if(drawImg)
@@ -313,19 +295,19 @@ void LocalTracker::update(const dvo::core::RgbdImagePyramid::Ptr& image, dvo::co
     }
 #endif
 
-//      ROS_INFO("ICP result trans: %f %f %f", testResult.Transformation.translation()(0),
-//               testResult.Transformation.translation()(1), testResult.Transformation.translation()(2));
-//      ROS_INFO("DVO result trans: %f %f %f", r_odometry.Transformation.translation()(0),
-//               r_odometry.Transformation.translation()(1),
-//               r_odometry.Transformation.translation()(2));
+    //      ROS_INFO("ICP result trans: %f %f %f", testResult.Transformation.translation()(0),
+    //               testResult.Transformation.translation()(1), testResult.Transformation.translation()(2));
+    //      ROS_INFO("DVO result trans: %f %f %f", r_odometry.Transformation.translation()(0),
+    //               r_odometry.Transformation.translation()(1),
+    //               r_odometry.Transformation.translation()(2));
 
-//      ROS_INFO("ICP result rot: %f %f %f %f", testResult.Transformation.rotation()(0),
-//               testResult.Transformation.rotation()(1), testResult.Transformation.rotation()(2),
-//               testResult.Transformation.rotation()(3));
-//      ROS_INFO("DVO result rot: %f %f %f %f", r_odometry.Transformation.rotation()(0),
-//               r_odometry.Transformation.rotation()(1),
-//               r_odometry.Transformation.rotation()(2),
-//               r_odometry.Transformation.rotation()(3));
+    //      ROS_INFO("ICP result rot: %f %f %f %f", testResult.Transformation.rotation()(0),
+    //               testResult.Transformation.rotation()(1), testResult.Transformation.rotation()(2),
+    //               testResult.Transformation.rotation()(3));
+    //      ROS_INFO("DVO result rot: %f %f %f %f", r_odometry.Transformation.rotation()(0),
+    //               r_odometry.Transformation.rotation()(1),
+    //               r_odometry.Transformation.rotation()(2),
+    //               r_odometry.Transformation.rotation()(3));
 
     ROS_WARN_COND(r_odometry.isNaN(), "NAN in Odometry");
     ROS_WARN_COND(r_keyframe.isNaN(), "NAN in Keyframe");
