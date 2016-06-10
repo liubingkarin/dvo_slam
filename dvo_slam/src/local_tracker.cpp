@@ -253,12 +253,8 @@ void LocalTracker::update(const dvo::core::RgbdImagePyramid::Ptr& image, dvo::co
         iaicp1.setupPredict(r_keyframe.Transformation);
         iaicp2.setupPredict(r_odometry.Transformation);
 
-
-
         iaicp1.match(*(impl_->keyframe_points_),*image, *(&r_keyframe));
         iaicp2.match(*(impl_->active_frame_points_),*image,*(&r_odometry));
-
-
 
         //TEST loglikelihood
         std::ofstream myfile;

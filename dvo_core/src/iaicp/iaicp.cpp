@@ -483,7 +483,7 @@ void Iaicp::llhAndInfomatrix(Affine3f transform, double &llh, dvo::core::Matrix6
         if(proj_depth[i] < 1e5 &&  p.z == p.z)
         {
             errorSum += abs(proj_depth[i] - p.z);
-            negErrSum += std::max((0.02 - abs(proj_depth[i]-p.z)), 0.001);
+            negErrSum += std::max((0.01 - abs(proj_depth[i]-p.z)), 0.0);
             if(abs(proj_depth[i]-p.z) < 0.005){
                 goodSum += 1.0;
             }
@@ -501,7 +501,7 @@ void Iaicp::llhAndInfomatrix(Affine3f transform, double &llh, dvo::core::Matrix6
     }
 
     double mean = errorSum/count;
-    llh = -std::max(negErrSum, 0.01)/count*1000;
+    llh = -std::max(negErrSum, 0.01)/*/count*/;
     //llh = -std::max(goodSum, 1.0)/count;
 
     //calculate variance --> informationmatrix
@@ -571,14 +571,14 @@ bool Iaicp::match(dvo::core::RgbdImagePyramid &ref, dvo::core::RgbdImagePyramid 
     {
         //mat_source_ = cloudToImage(tmp_s);
         mat_source_ = cloudToImage(Mat2Cloud(cur.ori_rgb, cur.ori_depth));
-        mat_source_.convertTo(mat_source_, CV_8UC3, 1);
+        mat_source_.convertTo(mat_source_, CV_8UC3, 255);
 
         mat_target_ = cloudToImage(tmp_t);
         //mat_target_ = ref.ori_rgb;
-        mat_target_.convertTo(mat_target_, CV_8UC3, 1);
+        mat_target_.convertTo(mat_target_, CV_8UC3, 255);
 
         mat_trans_ = cloudToImage(tmp_s, result_key);
-        mat_trans_.convertTo(mat_trans_, CV_8UC3, 1);
+        mat_trans_.convertTo(mat_trans_, CV_8UC3, 255);
 
         cv::absdiff(mat_target_ , mat_trans_, mat_residual_);
     }

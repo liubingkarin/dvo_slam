@@ -64,13 +64,13 @@ public:
     lt_.addMapInitializedCallback(boost::bind(&KeyframeTracker::Impl::onMapInitialized, this, _1, _2, _3));
     lt_.addMapCompleteCallback(boost::bind(&KeyframeTracker::Impl::onMapComplete, this, _1, _2));
     lt_.addAcceptCallback(boost::bind(&KeyframeTracker::Impl::onAcceptCriterionTrackingResultEvaluation, this, _1, _2, _3));
-    lt_.addAcceptCallback(boost::bind(&KeyframeTracker::Impl::onAcceptCriterionEstimateDivergence, this, _1, _2, _3));
-    //lt_.addAcceptCallback(boost::bind(&KeyframeTracker::Impl::onAcceptCriterionEntropyRatio, this, _1, _2, _3));
-    lt_.addAcceptCallback(boost::bind(&KeyframeTracker::Impl::onAcceptCriterionDistance, this, _1, _2, _3));
+    //lt_.addAcceptCallback(boost::bind(&KeyframeTracker::Impl::onAcceptCriterionEstimateDivergence, this, _1, _2, _3));
+    // //lt_.addAcceptCallback(boost::bind(&KeyframeTracker::Impl::onAcceptCriterionEntropyRatio, this, _1, _2, _3));
+    //lt_.addAcceptCallback(boost::bind(&KeyframeTracker::Impl::onAcceptCriterionDistance, this, _1, _2, _3));
 #ifndef USE_IAICP
     lt_.addAcceptCallback(boost::bind(&KeyframeTracker::Impl::onAcceptCriterionConstraintRatio, this, _1, _2, _3));
 #endif
-    lt_.addAcceptCallback(boost::bind(&KeyframeTracker::Impl::onAcceptCriterionConditionNumber, this, _1, _2, _3));
+    //lt_.addAcceptCallback(boost::bind(&KeyframeTracker::Impl::onAcceptCriterionConditionNumber, this, _1, _2, _3));
 
     ll_keyframe_pub_ = nh_.advertise<std_msgs::Float64>("/ll/keyframe", 1);
     ll_odometry_pub_ = nh_.advertise<std_msgs::Float64>("/ll/odometry", 1);
